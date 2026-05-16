@@ -1,4 +1,4 @@
-import { Data, DateTime, Effect, Terminal } from "effect";
+import { Console, Data, DateTime, Effect, Terminal } from "effect";
 import { Prompt } from "effect/unstable/cli";
 
 import {
@@ -53,7 +53,8 @@ const ANSI_CYAN_BRIGHT = "\x1B[96m";
 const ANSI_GREEN_BRIGHT = "\x1B[92m";
 const ANSI_RESET = "\x1B[0m";
 const CLI_HEADER_INDENT = "  ";
-const CLI_BOTTOM_PADDING = ["", ""];
+const CLI_BLOCK_INDENT = "  ";
+const CLI_BOTTOM_PADDING = [""];
 const CLI_ASCII_ICON = [
   [" ████", "████ "].join(" "),
   ["█    ", "█   █"].join(" "),
@@ -112,7 +113,7 @@ export function createResumePromptConfig(
   options: ResumeChoiceOptions = {},
 ): ResumePromptConfig {
   return {
-    message: "Select Codex chat",
+    message: `${CLI_BLOCK_INDENT}Select Codex chat`,
     choices: createResumeChoices(candidates, options),
     maxPerPage: Math.max(
       1,
@@ -127,6 +128,7 @@ export const selectResumeCandidate = Effect.fn("Resume.selectResumeCandidate")(
 
     const terminal = yield* Terminal.Terminal;
     const terminalColumns = yield* terminal.columns;
+    yield* Console.log("");
     const selectedId = yield* Prompt.run(
       Prompt.select(createResumePromptConfig(candidates, { terminalColumns })),
     );
@@ -148,10 +150,9 @@ export function formatResumeCommand(threadId: string): string {
 
 export function formatSelectedResumeResult(resumeCommand: string): string {
   return formatCliOutputBlock([
+    "Copy the command below to resume your chat:",
     "",
-    "  Copy the command below to resume your chat:",
-    "",
-    `  ${resumeCommand}`,
+    resumeCommand,
   ]);
 }
 
@@ -169,6 +170,7 @@ export function formatCliHeader(
 
   if (options.color === true) {
     return [
+      "",
       indentHeaderBlock(CLI_ASCII_ICON),
       "",
       `${CLI_HEADER_INDENT}${ANSI_BOLD}${ANSI_GREEN_BRIGHT}${name}${ANSI_RESET}`,
@@ -177,6 +179,7 @@ export function formatCliHeader(
   }
 
   return [
+    "",
     indentHeaderBlock(CLI_ASCII_ICON),
     "",
     `${CLI_HEADER_INDENT}${name}`,
@@ -200,7 +203,15 @@ export function formatUnknownSubcommandError(subcommand: string): string {
 }
 
 function formatCliOutputBlock(lines: readonly string[]): string {
-  return [...lines, ...CLI_BOTTOM_PADDING].join("\n");
+  return [
+    "",
+    ...lines.map(formatCliOutputLine),
+    ...CLI_BOTTOM_PADDING,
+  ].join("\n");
+}
+
+function formatCliOutputLine(line: string): string {
+  return line === "" ? "" : `${CLI_BLOCK_INDENT}${line}`;
 }
 
 export function resolveResumeTitle(
@@ -243,10 +254,14 @@ export function formatResumeChoiceName(
   );
   const maxTitleLength = Math.max(
     0,
-    terminalColumns - PROMPT_ROW_PREFIX_COLUMNS - prefix.length - 2,
+    terminalColumns -
+      PROMPT_ROW_PREFIX_COLUMNS -
+      CLI_BLOCK_INDENT.length -
+      prefix.length -
+      2,
   );
 
-  return `${prefix}  ${truncateInline(candidate.title, maxTitleLength)}`.trimEnd();
+  return `${CLI_BLOCK_INDENT}${prefix}  ${truncateInline(candidate.title, maxTitleLength)}`.trimEnd();
 }
 
 export function getThreadResumeTime(thread: ThreadRow): number {

@@ -31,6 +31,7 @@ describe("resume helpers", () => {
     [" ████", "█   █"].join(" "),
   ].join("\n");
   const expectedCliHeader = [
+    "",
     expectedCliIcon.split("\n").map((line) => `  ${line}`).join("\n"),
     "",
     "  codex-relink",
@@ -102,7 +103,7 @@ describe("resume helpers", () => {
   it.effect("formats the interactive selection result with a clear label", () =>
     Effect.gen(function* () {
       expect(formatSelectedResumeResult("codex resume 019abcdef")).toBe(
-        "\n  Copy the command below to resume your chat:\n\n  codex resume 019abcdef\n\n",
+        "\n  Copy the command below to resume your chat:\n\n  codex resume 019abcdef\n",
       );
     }),
   );
@@ -163,7 +164,7 @@ describe("resume helpers", () => {
         {
           value: "019abcdef1234567890",
           title:
-            "1.  2023-11-14 17:13 EST  019abcde  Resume helper implementation",
+            "  1.  2023-11-14 17:13 EST  019abcde  Resume helper implementation",
         },
       ]);
       expect(choices[0]).not.toHaveProperty("description");
@@ -214,7 +215,7 @@ describe("resume helpers", () => {
       });
 
       expect(choice.title).toBe(
-        "1.  2023-11-14 17:13 EST  019abcde  hey reply codex-rel...",
+        "  1.  2023-11-14 17:13 EST  019abcde  hey reply codex-r...",
       );
       expect(choice.title).not.toContain("\n");
       expect(choice.title).not.toContain("|");
@@ -273,6 +274,7 @@ describe("resume helpers", () => {
       );
 
       expect(config.maxPerPage).toBe(12);
+      expect(config.message).toBe("  Select Codex chat");
       expect(config.choices[0].value).toBe("thread-13");
       expect(config.choices[0].title.trimStart().startsWith("1.")).toBe(true);
     }),
@@ -281,7 +283,7 @@ describe("resume helpers", () => {
   it.effect("formats the no-match message for the current directory", () =>
     Effect.gen(function* () {
       expect(formatNoChatsFound("/repo/app")).toBe(
-        "No Codex chats were found for the current directory: /repo/app\n\n",
+        "\n  No Codex chats were found for the current directory: /repo/app\n",
       );
     }),
   );
@@ -306,9 +308,7 @@ describe("resume helpers", () => {
         expect(formatUnknownSubcommandError("wpw")).toContain(
           'Error: unknown subcommand "wpw"',
         );
-        expect(formatUnknownSubcommandError("wpw").endsWith("\n\n")).toBe(
-          true,
-        );
+        expect(formatUnknownSubcommandError("wpw").endsWith("\n")).toBe(true);
       }),
   );
 });
