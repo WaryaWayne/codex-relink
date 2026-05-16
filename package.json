@@ -1,7 +1,7 @@
 {
   "name": "codex-relink",
   "version": "1.0.0",
-  "description": "Repair missing or broken Codex chat-to-project links.",
+  "description": "Find Codex chats for the current directory and print resume commands.",
   "type": "module",
   "bin": {
     "codex-relink": "./dist/cli.js"
@@ -19,8 +19,9 @@
   "keywords": [
     "codex",
     "cli",
-    "sqlite",
-    "repair"
+    "resume",
+    "chat",
+    "find"
   ],
   "author": "",
   "license": "MIT",

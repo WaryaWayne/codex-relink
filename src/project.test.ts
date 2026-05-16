@@ -45,4 +45,16 @@ describe("project matching", () => {
     const match = matchThreadToProject({ ...baseThread, cwd: "/repo/app/subdir" }, "/repo/app");
     expect(match).toEqual({ matches: true, reasons: ["descendant-cwd"] });
   });
+
+  it("matches threads by transcript cwd mentions", () => {
+    const match = matchThreadToProject({ ...baseThread, cwd: null }, "/repo/app", {
+      filePath: "/tmp/session.jsonl",
+      threadId: "thread-1",
+      cwdMentions: ["/repo/app"],
+      userMessages: [],
+      eventMessages: []
+    });
+
+    expect(match).toEqual({ matches: true, reasons: ["transcript-cwd"] });
+  });
 });

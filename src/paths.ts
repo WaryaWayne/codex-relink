@@ -25,8 +25,6 @@ export function getCodexPaths(codexHomeInput = "~/.codex"): CodexPaths {
   return {
     codexHome,
     stateDbPath: path.join(codexHome, "state_5.sqlite"),
-    globalStatePath: path.join(codexHome, ".codex-global-state.json"),
-    sessionIndexPath: path.join(codexHome, "session_index.jsonl"),
     sessionsDir: path.join(codexHome, "sessions")
   };
 }
@@ -38,8 +36,4 @@ export function resolveMaybeRelativePath(baseDir: string, maybePath: string | nu
 
   const expanded = expandHome(maybePath);
   return path.isAbsolute(expanded) ? path.normalize(expanded) : path.resolve(baseDir, expanded);
-}
-
-export function safeTimestamp(date = new Date()): string {
-  return date.toISOString().replaceAll(":", "-").replaceAll(".", "-");
 }

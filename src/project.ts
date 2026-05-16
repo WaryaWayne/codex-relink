@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import { normalizeFsPath } from "./paths.js";
-import type { ProjectMatch, ThreadRow, TranscriptMetadata } from "./types.js";
+import type { LoadedCodexData, ProjectMatch, ThreadRow, TranscriptMetadata } from "./types.js";
 
 export function isSameOrDescendantPath(candidateInput: string, rootInput: string): "exact" | "descendant" | null {
   const candidate = normalizeFsPath(candidateInput);
@@ -51,44 +51,9 @@ export function matchThreadToProject(
   };
 }
 
-export function findContainingSavedRoot(cwdInput: string | null | undefined, savedProjectRoots: string[]): string | null {
-  if (!cwdInput) {
-    return null;
-  }
-
-  const matches = savedProjectRoots
-    .map((root) => ({ root: normalizeFsPath(root), kind: isSameOrDescendantPath(cwdInput, root) }))
-    .filter((match): match is { root: string; kind: "exact" | "descendant" } => match.kind != null)
-    .sort((left, right) => right.root.length - left.root.length);
-
-  return matches[0]?.root ?? null;
-}
-
-export function looksSuspiciousCwd(cwd: string | null | undefined, savedProjectRoots: string[]): string[] {
-  const flags: string[] = [];
-  if (!cwd || cwd.trim() === "") {
-    return ["blank-cwd"];
-  }
-
-  const normalized = normalizeFsPath(cwd);
-  const segments = normalized.split(path.sep).filter(Boolean);
-
-  if (normalized.startsWith("/private/tmp") || normalized.startsWith("/tmp")) {
-    flags.push("temporary-folder");
-  }
-
-  if (segments.some((segment) => ["node_modules", "dist", "build", ".next", ".turbo", ".cache", "coverage"].includes(segment))) {
-    flags.push("generated-folder");
-  }
-
-  if (segments.some((segment) => ["references", "reference", "tmp", "temp"].includes(segment.toLowerCase()))) {
-    flags.push("likely-nested-working-folder");
-  }
-
-  const containingRoot = findContainingSavedRoot(normalized, savedProjectRoots);
-  if (containingRoot && normalizeFsPath(containingRoot) !== normalized) {
-    flags.push("nested-under-saved-root");
-  }
-
-  return flags;
+export function filterThreadsForProject(data: LoadedCodexData, projectRoot: string): ThreadRow[] {
+  return data.threads.filter((thread) => {
+    const transcript = data.transcriptsByThreadId.get(thread.id);
+    return matchThreadToProject(thread, projectRoot, transcript).matches;
+  });
 }
