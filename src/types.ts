@@ -3,6 +3,11 @@ export type ThreadRow = {
   rollout_path: string | null;
   created_at: number | null;
   updated_at: number | null;
+  created_at_ms: number | null;
+  updated_at_ms: number | null;
+  source: string | null;
+  thread_source: string | null;
+  has_user_event: number | null;
   cwd: string | null;
   title: string | null;
   preview: string | null;
@@ -11,6 +16,18 @@ export type ThreadRow = {
   git_branch: string | null;
   git_origin_url: string | null;
   archived: number | null;
+};
+
+export type ThreadGoalRow = {
+  thread_id: string;
+  goal_id: string | null;
+  objective: string | null;
+  status: string | null;
+  token_budget: number | null;
+  tokens_used: number | null;
+  time_used_seconds: number | null;
+  created_at_ms: number | null;
+  updated_at_ms: number | null;
 };
 
 export type GlobalState = Record<string, unknown>;
@@ -27,7 +44,15 @@ export type CodexPaths = {
   codexHome: string;
   stateDbPath: string;
   globalStatePath: string;
+  sessionIndexPath: string;
   sessionsDir: string;
+};
+
+export type SessionIndexEntry = {
+  id: string;
+  thread_name?: string;
+  updated_at?: string;
+  [key: string]: unknown;
 };
 
 export type LoadedCodexData = {
@@ -38,6 +63,9 @@ export type LoadedCodexData = {
   transcripts: TranscriptMetadata[];
   transcriptsByThreadId: Map<string, TranscriptMetadata>;
   transcriptIds: Set<string>;
+  threadGoalsByThreadId: Map<string, ThreadGoalRow>;
+  sessionIndexEntries: SessionIndexEntry[];
+  sessionIndexIds: Set<string>;
 };
 
 export type ProjectMatchReason =
@@ -72,6 +100,18 @@ export type RepairAction =
       source: "preview";
     }
   | {
+      type: "fill-generic-preview";
+      threadId: string;
+      value: "Recovered Codex conversation";
+      source: "desktop-visibility";
+    }
+  | {
+      type: "fill-generic-title";
+      threadId: string;
+      value: string;
+      source: "desktop-visibility";
+    }
+  | {
       type: "set-workspace-root-hint";
       threadId: string;
       value: string;
@@ -83,6 +123,13 @@ export type RepairAction =
       from: string;
       to: string;
       source: "saved-project-root";
+    }
+  | {
+      type: "add-session-index-entry";
+      threadId: string;
+      threadName: string;
+      updatedAt: string;
+      source: "sqlite-thread";
     };
 
 export type RepairPlan = {

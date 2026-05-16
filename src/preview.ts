@@ -11,6 +11,28 @@ export function cleanText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+export function isSyntheticContextText(value: string | null | undefined): boolean {
+  if (isBlank(value)) {
+    return false;
+  }
+
+  const cleaned = cleanText(value ?? "").toLowerCase();
+  return (
+    cleaned.startsWith("<environment_context>") ||
+    cleaned.startsWith("&lt;environment_context&gt;") ||
+    cleaned.startsWith("<permissions instructions>") ||
+    cleaned.startsWith("&lt;permissions instructions&gt;")
+  );
+}
+
+export function hasUsableDisplayTitle(value: string | null | undefined): boolean {
+  return !isBlank(value) && !isSyntheticContextText(value);
+}
+
+export function hasUsableDisplayPreview(value: string | null | undefined): boolean {
+  return !isBlank(value) && !isSyntheticContextText(value);
+}
+
 export function truncateText(value: string, maxLength: number): string {
   const cleaned = cleanText(value);
   if (cleaned.length <= maxLength) {
@@ -32,7 +54,7 @@ export function recoverPreview(
   firstUserMessage: string | null | undefined,
   transcript: TranscriptMetadata | null | undefined
 ): PreviewRecovery | null {
-  if (!isBlank(firstUserMessage)) {
+  if (!isBlank(firstUserMessage) && !isSyntheticContextText(firstUserMessage)) {
     const value = firstUserMessage ?? "";
     return {
       value: normalizePreview(value),
@@ -40,7 +62,7 @@ export function recoverPreview(
     };
   }
 
-  const userMessage = transcript?.userMessages.find((message) => !isBlank(message));
+  const userMessage = transcript?.userMessages.find((message) => !isBlank(message) && !isSyntheticContextText(message));
   if (userMessage) {
     return {
       value: normalizePreview(userMessage),
@@ -48,7 +70,7 @@ export function recoverPreview(
     };
   }
 
-  const eventMessage = transcript?.eventMessages.find((message) => !isBlank(message));
+  const eventMessage = transcript?.eventMessages.find((message) => !isBlank(message) && !isSyntheticContextText(message));
   if (eventMessage) {
     return {
       value: normalizePreview(eventMessage),

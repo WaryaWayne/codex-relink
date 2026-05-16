@@ -2,6 +2,7 @@
 import { Command } from "commander";
 
 import { exportProjectThreads } from "./export.js";
+import { isPromptExit, runInteractiveRepair } from "./interactive.js";
 import { repairCodexData, formatRepairResult } from "./repair.js";
 import { createScanReport, formatScanReport } from "./scan.js";
 import { loadCodexData } from "./storage.js";
@@ -35,6 +36,7 @@ program
   .option("--project <path>", "Focus on one project root")
   .option("--dry-run", "Do not write anything")
   .option("--backup", "Create backups and apply conservative repairs")
+  .option("--interactive", "Select repair actions with a terminal checkbox UI")
   .option("--fix-hints", "Also add/update thread-workspace-root-hints")
   .option("--fix-cwd", "Also remap nested cwd values to saved project roots")
   .option("--json", "Print JSON")
@@ -43,11 +45,20 @@ program
       project?: string;
       dryRun?: boolean;
       backup?: boolean;
+      interactive?: boolean;
       fixHints?: boolean;
       fixCwd?: boolean;
       json?: boolean;
     }) => {
       const data = await loadCodexData({ codexHome: program.opts<{ codexHome: string }>().codexHome });
+
+      if (options.interactive && !options.json) {
+        await runInteractiveRepair(data, {
+          project: options.project
+        });
+        return;
+      }
+
       const result = await repairCodexData(data, {
         project: options.project,
         dryRun: options.dryRun || !options.backup,
@@ -79,6 +90,12 @@ program
   });
 
 program.parseAsync(process.argv).catch((error: unknown) => {
+  if (isPromptExit(error)) {
+    console.error("Interactive repair cancelled. Nothing was changed.");
+    process.exitCode = 130;
+    return;
+  }
+
   const message = error instanceof Error ? error.message : String(error);
   console.error(message);
   process.exitCode = 1;

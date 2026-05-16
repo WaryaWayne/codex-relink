@@ -31,4 +31,28 @@ describe("jsonl transcript parsing", () => {
       eventMessages: ["event fallback"]
     });
   });
+
+  it("skips synthetic environment context user messages", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-relink-jsonl-"));
+    const filePath = path.join(dir, "session.jsonl");
+    fs.writeFileSync(
+      filePath,
+      [
+        JSON.stringify({
+          type: "response_item",
+          payload: {
+            type: "message",
+            role: "user",
+            content: [{ type: "input_text", text: "<environment_context>\n  <cwd>/repo/app</cwd>\n</environment_context>" }]
+          }
+        }),
+        JSON.stringify({
+          type: "response_item",
+          payload: { type: "message", role: "user", content: [{ type: "input_text", text: "real request" }] }
+        })
+      ].join("\n")
+    );
+
+    expect(parseJsonlTranscript(filePath).userMessages).toEqual(["real request"]);
+  });
 });

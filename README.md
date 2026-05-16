@@ -6,6 +6,7 @@ It reads:
 
 - `~/.codex/state_5.sqlite`
 - `~/.codex/.codex-global-state.json`
+- `~/.codex/session_index.jsonl`
 - `~/.codex/sessions/**/*.jsonl`
 
 The default behavior is read-only. The CLI never deletes or archives threads.
@@ -53,11 +54,34 @@ npx --yes /Users/bdmwarya/Desktop/projects/codex-relink repair --dry-run --proje
 
 This proposes repairs such as:
 
-- Filling blank `preview` from `first_user_message`
-- Filling blank `preview` from transcript user/event messages
-- Filling blank `title` from the recovered preview when obvious
+- Filling blank/synthetic `title` with `Recovered title #N`
+- Filling blank/synthetic `preview` with `Recovered Codex conversation`
+- Adding missing `session_index.jsonl` entries for visible app indexing
 - Reporting possible project-root hints
 - Reporting possible cwd remaps, without applying them unless requested
+
+Default repairs are scoped to active user threads where `source` is `cli` or `vscode` and `thread_source` is `user`, null, or empty. Guardian/subagent threads are skipped by default. `thread_goals.objective` is only used as evidence that a thread is recoverable; it is not copied into `title`, `preview`, or `session_index.jsonl`.
+
+## Interactive Repair Picker
+
+Use the checkbox multi-select picker to review proposed repairs before writing:
+
+```bash
+npx --yes /Users/bdmwarya/Desktop/projects/codex-relink repair --interactive --project /Users/bdmwarya/Desktop/projects/creaClient
+```
+
+The picker shows recommended repairs checked by default:
+
+- `fill-generic-title`
+- `fill-generic-preview`
+- `add-session-index-entry`
+
+Optional project-link repairs are shown unchecked:
+
+- `set-workspace-root-hint`
+- `remap-cwd`
+
+Use space to select, enter to continue. After selection, the CLI shows a summary and asks for confirmation. It creates the same timestamped backup as `repair --backup` before applying selected repairs. `--interactive` requires an interactive TTY, and `--json` keeps repair output non-interactive.
 
 ## Write Repairs
 
@@ -78,8 +102,9 @@ It backs up:
 - `state_5.sqlite` using SQLite's backup API
 - `state_5.sqlite-wal` and `state_5.sqlite-shm` if present
 - `.codex-global-state.json`
+- `session_index.jsonl`
 
-By default, write mode only fills blank `preview` and obvious blank `title` values. It does not change `cwd`.
+By default, write mode only applies safe desktop visibility repairs for active real user threads: generic title/preview fills and missing `session_index.jsonl` entries. It does not change `cwd` or project hints.
 
 To add/update `thread-workspace-root-hints` when the thread cwd is clearly inside a saved project root:
 
@@ -125,7 +150,7 @@ Each exported thread includes `id`, timestamps, `cwd`, `preview`, `title`, `roll
    npx --yes /Users/bdmwarya/Desktop/projects/codex-relink repair --dry-run --project /Users/bdmwarya/Desktop/projects/creaClient
    ```
 
-3. If the plan only fills blank previews/titles, apply conservative repairs:
+3. If the plan only applies generic display metadata and session-index repairs, apply conservative repairs:
 
    ```bash
    npx --yes /Users/bdmwarya/Desktop/projects/codex-relink repair --backup --project /Users/bdmwarya/Desktop/projects/creaClient

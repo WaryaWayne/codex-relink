@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isBlank, recoverPreview } from "./preview.js";
+import { hasUsableDisplayPreview, hasUsableDisplayTitle, isBlank, isSyntheticContextText, recoverPreview } from "./preview.js";
 import type { TranscriptMetadata } from "./types.js";
 
 const emptyTranscript: TranscriptMetadata = {
@@ -48,5 +48,27 @@ describe("preview recovery", () => {
       value: "User asked for scan output",
       source: "transcript_event_message"
     });
+  });
+
+  it("skips synthetic environment context when recovering previews", () => {
+    const environmentContext =
+      "<environment_context>\n  <cwd>/Users/bdmwarya/Desktop/projects/creaClient</cwd>\n  <shell>zsh</shell>\n</environment_context>";
+
+    expect(isSyntheticContextText(environmentContext)).toBe(true);
+    expect(
+      recoverPreview(environmentContext, {
+        ...emptyTranscript,
+        userMessages: [environmentContext, "actual user request"]
+      })
+    ).toEqual({
+      value: "actual user request",
+      source: "transcript_user_message"
+    });
+  });
+
+  it("treats synthetic display metadata as unusable", () => {
+    expect(hasUsableDisplayTitle("A real title")).toBe(true);
+    expect(hasUsableDisplayTitle("<permissions instructions>tool limits</permissions instructions>")).toBe(false);
+    expect(hasUsableDisplayPreview("&lt;environment_context&gt;cwd&lt;/environment_context&gt;")).toBe(false);
   });
 });

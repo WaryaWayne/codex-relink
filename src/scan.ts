@@ -2,9 +2,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { resolveMaybeRelativePath } from "./paths.js";
-import { isBlank } from "./preview.js";
+import { hasUsableDisplayPreview, hasUsableDisplayTitle, isBlank } from "./preview.js";
 import { looksSuspiciousCwd, matchThreadToProject } from "./project.js";
 import { getProjectlessThreadIds } from "./storage.js";
+import { isDefaultRepairCandidate, isGuardianOrSubagentThread } from "./threadFilters.js";
 import type { LoadedCodexData, ThreadRow } from "./types.js";
 
 export type ScanOptions = {
@@ -14,6 +15,9 @@ export type ScanOptions = {
 export type ScanReport = {
   totalThreads: number;
   activeThreads: number;
+  desktopVisibleCandidateCount: number;
+  hiddenRealUserDisplayThreads: ThreadSummary[];
+  skippedSubagentGuardianThreadCount: number;
   savedProjectRoots: string[];
   threadsByCwd: Array<{ cwd: string; count: number; blankPreviewCount: number }>;
   blankPreviewThreads: ThreadSummary[];
@@ -37,6 +41,12 @@ export function createScanReport(data: LoadedCodexData, options: ScanOptions = {
   const threadIds = new Set(data.threads.map((thread) => thread.id));
   const projectlessIds = getProjectlessThreadIds(data.globalState);
   const cwdCounts = new Map<string, { count: number; blankPreviewCount: number }>();
+  const desktopVisibleCandidates = threads.filter((thread) =>
+    isDefaultRepairCandidate(thread, { hasThreadGoal: data.threadGoalsByThreadId.has(thread.id) })
+  );
+  const hiddenRealUserDisplayThreads = desktopVisibleCandidates.filter(
+    (thread) => !hasUsableDisplayTitle(thread.title) || !hasUsableDisplayPreview(thread.preview)
+  );
 
   for (const thread of threads) {
     const cwd = thread.cwd?.trim() || "(blank)";
@@ -76,6 +86,9 @@ export function createScanReport(data: LoadedCodexData, options: ScanOptions = {
   return {
     totalThreads: threads.length,
     activeThreads: threads.filter((thread) => thread.archived !== 1).length,
+    desktopVisibleCandidateCount: desktopVisibleCandidates.length,
+    hiddenRealUserDisplayThreads: hiddenRealUserDisplayThreads.map(summarizeThread),
+    skippedSubagentGuardianThreadCount: threads.filter(isGuardianOrSubagentThread).length,
     savedProjectRoots: data.savedProjectRoots,
     threadsByCwd: Array.from(cwdCounts.entries())
       .map(([cwd, value]) => ({ cwd, ...value }))
@@ -120,6 +133,9 @@ export function formatScanReport(report: ScanReport, project?: string): string {
   lines.push("");
   lines.push(`Total threads: ${report.totalThreads}`);
   lines.push(`Active threads: ${report.activeThreads}`);
+  lines.push(`Desktop-visible candidates: ${report.desktopVisibleCandidateCount}`);
+  lines.push(`Hidden real user threads with blank/synthetic display metadata: ${report.hiddenRealUserDisplayThreads.length}`);
+  lines.push(`Skipped subagent/guardian threads: ${report.skippedSubagentGuardianThreadCount}`);
   lines.push(`Saved project roots: ${report.savedProjectRoots.length}`);
   lines.push(`Blank preview threads: ${report.blankPreviewThreads.length}`);
   lines.push(`Threads with missing rollout files: ${report.missingRolloutFiles.length}`);
@@ -148,6 +164,14 @@ export function formatScanReport(report: ScanReport, project?: string): string {
     }
   }
 
+  if (report.hiddenRealUserDisplayThreads.length > 0) {
+    lines.push("");
+    lines.push("Hidden real user display metadata samples:");
+    for (const thread of report.hiddenRealUserDisplayThreads.slice(0, 10)) {
+      lines.push(`- ${thread.id} ${thread.cwd ?? "(blank cwd)"}`);
+    }
+  }
+
   return `${lines.join("\n")}\n`;
 }
 
@@ -156,6 +180,11 @@ const emptyThread: ThreadRow = {
   rollout_path: null,
   created_at: null,
   updated_at: null,
+  created_at_ms: null,
+  updated_at_ms: null,
+  source: null,
+  thread_source: null,
+  has_user_event: null,
   cwd: null,
   title: null,
   preview: null,

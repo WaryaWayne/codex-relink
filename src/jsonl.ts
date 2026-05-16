@@ -1,5 +1,6 @@
 import fs from "node:fs";
 
+import { isSyntheticContextText } from "./preview.js";
 import type { TranscriptMetadata } from "./types.js";
 
 type JsonObject = Record<string, unknown>;
@@ -93,7 +94,7 @@ function extractUserMessages(parsed: JsonObject, metadata: TranscriptMetadata): 
 
   if (role === "user") {
     const text = extractText(getPath(parsed, ["payload", "content"]) ?? getPath(parsed, ["content"]) ?? parsed);
-    if (text) {
+    if (text && !isSyntheticContextText(text)) {
       metadata.userMessages.push(text);
     }
   }
@@ -101,14 +102,14 @@ function extractUserMessages(parsed: JsonObject, metadata: TranscriptMetadata): 
   if (itemRole === "user") {
     const item = getPath(parsed, ["payload", "item"]);
     const text = extractText(getPath(parsed, ["payload", "item", "content"]) ?? item);
-    if (text) {
+    if (text && !isSyntheticContextText(text)) {
       metadata.userMessages.push(text);
     }
   }
 
   if (type === "user_message") {
     const text = extractText(getPath(parsed, ["payload"]) ?? parsed);
-    if (text) {
+    if (text && !isSyntheticContextText(text)) {
       metadata.userMessages.push(text);
     }
   }
