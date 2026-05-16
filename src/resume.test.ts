@@ -39,7 +39,7 @@ describe("resume helpers", () => {
   });
 
   it("formats the exact resume command", () => {
-    expect(formatResumeCommand("019abcdef")).toBe("codex --resume 019abcdef");
+    expect(formatResumeCommand("019abcdef")).toBe("codex resume 019abcdef");
   });
 
   it("uses title, preview, transcript user message, then untitled fallback", () => {
@@ -69,7 +69,7 @@ describe("resume helpers", () => {
         value: "019abcdef1234567890",
         name: "Resume helper implementation | 2023-11-14 22:13 UTC | 019abcde",
         short: "019abcde",
-        description: "codex --resume 019abcdef1234567890 (019abcdef1234567890)"
+        description: "codex resume 019abcdef1234567890 (019abcdef1234567890)"
       }
     ]);
     expect(formatResumeChoiceName(candidate)).toContain("Resume helper implementation");

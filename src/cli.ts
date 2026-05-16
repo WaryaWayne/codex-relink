@@ -16,6 +16,7 @@ program
   .name("codex-relink")
   .description("Find Codex chats for the current directory and print resume commands.")
   .version("1.0.0")
+  .helpOption("-h, --help", "Display help for command.")
   .option("--codex-home <path>", "Codex home directory", "~/.codex");
 
 program

@@ -58,7 +58,7 @@ export async function selectResumeCandidate(candidates: readonly ResumeCandidate
 }
 
 export function formatResumeCommand(threadId: string): string {
-  return `codex --resume ${threadId}`;
+  return `codex resume ${threadId}`;
 }
 
 export function formatNoChatsFound(cwd: string): string {
