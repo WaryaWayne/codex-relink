@@ -1,6 +1,10 @@
 # codex-relink
 
-`codex-relink` is a small read-only helper for finding Codex chats that match the current working directory and printing the command needed to resume them.
+`codex-relink` is a small read-only helper for finding missing or hard-to-locate Codex CLI chats that match the current working directory and printing the command needed to resume them.
+
+Use it when a Codex chat looks lost, missing from the picker, or disconnected from the project you were working in, but the local Codex storage still has enough data to find the thread id.
+
+This is especially for chats that do not appear in the Codex CLI resume picker or the Codex Desktop sidebar. Run `codex-relink latest` or `codex-relink list` from the project directory, and it searches local Codex storage directly so you can resume chats that are still in the database.
 
 It reads local Codex storage:
 

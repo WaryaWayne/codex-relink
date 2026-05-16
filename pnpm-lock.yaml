@@ -14,12 +14,6 @@ importers:
       '@effect/sql-sqlite-node':
         specifier: 4.0.0-beta.66
         version: 4.0.0-beta.66(effect@4.0.0-beta.66)
-      '@effect/vitest':
-        specifier: 4.0.0-beta.66
-        version: 4.0.0-beta.66(effect@4.0.0-beta.66)(vitest@4.1.6(@types/node@24.12.4)(vite@8.0.13(@types/node@24.12.4)(yaml@2.9.0)))
-      '@typescript/native-preview':
-        specifier: 7.0.0-dev.20260515.1
-        version: 7.0.0-dev.20260515.1
       effect:
         specifier: 4.0.0-beta.66
         version: 4.0.0-beta.66
@@ -27,12 +21,15 @@ importers:
       '@effect/tsgo':
         specifier: 0.7.2
         version: 0.7.2
+      '@effect/vitest':
+        specifier: 4.0.0-beta.66
+        version: 4.0.0-beta.66(effect@4.0.0-beta.66)(vitest@4.1.6(@types/node@24.12.4)(vite@8.0.13(@types/node@24.12.4)(yaml@2.9.0)))
       '@types/node':
         specifier: ^24.10.1
         version: 24.12.4
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260515.1
+        version: 7.0.0-dev.20260515.1
       vitest:
         specifier: ^4.0.14
         version: 4.1.6(@types/node@24.12.4)(vite@8.0.13(@types/node@24.12.4)(yaml@2.9.0))
@@ -728,11 +725,6 @@ packages:
 
   tunnel-agent@0.6.0:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
-
-  typescript@6.0.3:
-    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
-    engines: {node: '>=14.17'}
-    hasBin: true
 
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
@@ -1470,8 +1462,6 @@ snapshots:
   tunnel-agent@0.6.0:
     dependencies:
       safe-buffer: 5.2.1
-
-  typescript@6.0.3: {}
 
   undici-types@7.16.0: {}
 
