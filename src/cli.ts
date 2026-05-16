@@ -1,63 +1,117 @@
 #!/usr/bin/env node
-import { Command } from "commander";
+import { NodeRuntime, NodeServices } from "@effect/platform-node";
+import { Console, Effect } from "effect";
+import { CliError, Command, Flag } from "effect/unstable/cli";
 
 import {
   findResumeCandidates,
   formatNoChatsFound,
   getLatestResumeCandidate,
-  isPromptExit,
-  selectResumeCandidate
+  selectResumeCandidate,
 } from "./resume.js";
 import { loadCodexData } from "./storage.js";
 
-const program = new Command();
+const VERSION = "0.0.1";
 
-program
-  .name("codex-relink")
-  .description("Find Codex chats for the current directory and print resume commands.")
-  .version("1.0.0")
-  .helpOption("-h, --help", "Display help for command.")
-  .option("--codex-home <path>", "Codex home directory", "~/.codex");
+const codexHome = Flag.string("codex-home").pipe(
+  Flag.withDescription("Codex home directory"),
+  Flag.withDefault("~/.codex"),
+);
 
-program
-  .command("latest")
-  .description("Print the newest Codex resume command for the current directory.")
-  .action(async () => {
-    const cwd = process.cwd();
-    const data = await loadCodexData({ codexHome: program.opts<{ codexHome: string }>().codexHome });
-    const latest = getLatestResumeCandidate(findResumeCandidates(data, cwd));
-    if (!latest) {
-      console.log(formatNoChatsFound(cwd));
+const root = Command.make("codex-relink", {}, () => Effect.void).pipe(
+  Command.withSharedFlags({ codexHome }),
+  Command.withDescription(
+    "Find Codex chats for the current directory and print resume commands.",
+  ),
+);
+
+const latest = Command.make(
+  "latest",
+  {},
+  Effect.fn("Cli.latest")(function* () {
+    const options = yield* root;
+    const cwd = yield* currentWorkingDirectory;
+    const data = yield* loadCodexData({ codexHome: options.codexHome });
+    const candidate = getLatestResumeCandidate(findResumeCandidates(data, cwd));
+
+    if (!candidate) {
+      yield* Console.log(formatNoChatsFound(cwd));
       return;
     }
 
-    console.log(latest.resumeCommand);
-  });
+    yield* Console.log(candidate.resumeCommand);
+  }),
+).pipe(
+  Command.withDescription(
+    "Print the newest Codex resume command for the current directory.",
+  ),
+);
 
-program
-  .command("list")
-  .description("Pick a Codex chat for the current directory and print its resume command.")
-  .action(async () => {
-    const cwd = process.cwd();
-    const data = await loadCodexData({ codexHome: program.opts<{ codexHome: string }>().codexHome });
+const list = Command.make(
+  "list",
+  {},
+  Effect.fn("Cli.list")(function* () {
+    const options = yield* root;
+    const cwd = yield* currentWorkingDirectory;
+    const data = yield* loadCodexData({ codexHome: options.codexHome });
     const candidates = findResumeCandidates(data, cwd);
+
     if (candidates.length === 0) {
-      console.log(formatNoChatsFound(cwd));
+      yield* Console.log(formatNoChatsFound(cwd));
       return;
     }
 
-    const selected = await selectResumeCandidate(candidates);
-    console.log(selected.resumeCommand);
-  });
+    const selected = yield* selectResumeCandidate(candidates);
+    yield* Console.log(selected.resumeCommand);
+  }),
+).pipe(
+  Command.withDescription(
+    "Pick a Codex chat for the current directory and print its resume command.",
+  ),
+);
 
-program.parseAsync(process.argv).catch((error: unknown) => {
-  if (isPromptExit(error)) {
-    console.error("Interactive selection cancelled.");
-    process.exitCode = 130;
-    return;
+const app = root.pipe(Command.withSubcommands([latest, list]));
+
+const main = Command.run(app, { version: VERSION }).pipe(
+  Effect.catchTag("ShowHelp", (error) =>
+    error.errors.length === 0 ? Effect.void : setExitCode(1),
+  ),
+  Effect.onInterrupt(() =>
+    Console.error("Interactive selection cancelled.").pipe(
+      Effect.andThen(setExitCode(130)),
+    ),
+  ),
+  Effect.catch((error: unknown) =>
+    CliError.isCliError(error)
+      ? setExitCode(1)
+      : Console.error(formatError(error)).pipe(Effect.andThen(setExitCode(1))),
+  ),
+  Effect.provide(NodeServices.layer),
+);
+
+NodeRuntime.runMain(main, { disableErrorReporting: true });
+
+const currentWorkingDirectory = Effect.sync(() => process.cwd());
+
+function setExitCode(code: number) {
+  return Effect.sync(() => {
+    process.exitCode = code;
+  });
+}
+
+function formatError(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
   }
 
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(message);
-  process.exitCode = 1;
-});
+  if (
+    typeof error === "object" &&
+    error != null &&
+    "message" in error &&
+    typeof error.message === "string"
+  ) {
+    return error.message;
+  }
+
+  return String(error);
+}

@@ -1,11 +1,17 @@
-import fs from "node:fs";
+import { Effect, FileSystem } from "effect";
 
 import { isSyntheticContextText } from "./preview.js";
 import type { TranscriptMetadata } from "./types.js";
 
 type JsonObject = Record<string, unknown>;
 
-export function parseJsonlTranscript(filePath: string): TranscriptMetadata {
+export const parseJsonlTranscript = Effect.fn("Jsonl.parseJsonlTranscript")(function*(filePath: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const body = yield* fs.readFileString(filePath);
+  return parseJsonlTranscriptBody(filePath, body);
+});
+
+export function parseJsonlTranscriptBody(filePath: string, body: string): TranscriptMetadata {
   const metadata: TranscriptMetadata = {
     filePath,
     threadId: null,
@@ -14,7 +20,6 @@ export function parseJsonlTranscript(filePath: string): TranscriptMetadata {
     eventMessages: []
   };
 
-  const body = fs.readFileSync(filePath, "utf8");
   for (const line of body.split(/\r?\n/)) {
     if (line.trim() === "") {
       continue;

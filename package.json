@@ -1,6 +1,6 @@
 {
   "name": "codex-relink",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "Find Codex chats for the current directory and print resume commands.",
   "type": "module",
   "bin": {
@@ -14,7 +14,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepare": "effect-tsgo patch"
   },
   "keywords": [
     "codex",
@@ -29,16 +30,16 @@
     "node": ">=20"
   },
   "dependencies": {
-    "@inquirer/prompts": "^8.4.3",
-    "better-sqlite3": "^12.5.0",
-    "commander": "^14.0.2",
-    "fast-glob": "^3.3.3"
+    "@effect/platform-node": "4.0.0-beta.66",
+    "@effect/sql-sqlite-node": "4.0.0-beta.66",
+    "@typescript/native-preview": "7.0.0-dev.20260515.1",
+    "effect": "4.0.0-beta.66"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.10.1",
-    "typescript": "^5.9.3",
-    "vitest": "^4.0.14"
+    "typescript": "6.0.3",
+    "vitest": "^4.0.14",
+    "@effect/tsgo": "0.7.2"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

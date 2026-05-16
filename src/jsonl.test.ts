@@ -2,12 +2,14 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
+import { NodeFileSystem } from "@effect/platform-node";
+import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { parseJsonlTranscript } from "./jsonl.js";
 
 describe("jsonl transcript parsing", () => {
-  it("extracts id, cwd, user messages, event messages, and tool workdir values", () => {
+  it("extracts id, cwd, user messages, event messages, and tool workdir values", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-relink-jsonl-"));
     const filePath = path.join(dir, "session.jsonl");
     fs.writeFileSync(
@@ -23,7 +25,9 @@ describe("jsonl transcript parsing", () => {
       ].join("\n")
     );
 
-    expect(parseJsonlTranscript(filePath)).toMatchObject({
+    const transcript = await runJsonlParser(filePath);
+
+    expect(transcript).toMatchObject({
       filePath,
       threadId: "thread-1",
       cwdMentions: ["/repo/app", "/repo/app/packages/web"],
@@ -32,7 +36,7 @@ describe("jsonl transcript parsing", () => {
     });
   });
 
-  it("skips synthetic environment context user messages", () => {
+  it("skips synthetic environment context user messages", async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-relink-jsonl-"));
     const filePath = path.join(dir, "session.jsonl");
     fs.writeFileSync(
@@ -53,6 +57,12 @@ describe("jsonl transcript parsing", () => {
       ].join("\n")
     );
 
-    expect(parseJsonlTranscript(filePath).userMessages).toEqual(["real request"]);
+    const transcript = await runJsonlParser(filePath);
+
+    expect(transcript.userMessages).toEqual(["real request"]);
   });
 });
+
+function runJsonlParser(filePath: string) {
+  return Effect.runPromise(parseJsonlTranscript(filePath).pipe(Effect.provide(NodeFileSystem.layer)));
+}

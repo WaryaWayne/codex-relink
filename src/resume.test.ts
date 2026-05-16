@@ -68,8 +68,7 @@ describe("resume helpers", () => {
     expect(choices).toEqual([
       {
         value: "019abcdef1234567890",
-        name: "1.  2023-11-14 22:13 UTC  019abcde  Resume helper implementation",
-        short: "019abcde",
+        title: "1.  2023-11-14 22:13 UTC  019abcde  Resume helper implementation",
         description: "codex resume 019abcdef1234567890 (019abcdef1234567890)"
       }
     ]);
@@ -93,10 +92,10 @@ describe("resume helpers", () => {
     const candidate = findResumeCandidates(data, "/repo/app")[0];
     const [choice] = createResumeChoices([candidate], { terminalColumns: 60 });
 
-    expect(choice.name).toBe("1.  2023-11-14 22:13 UTC  019abcde  hey reply codex-rel...");
-    expect(choice.name).not.toContain("\n");
-    expect(choice.name).not.toContain("|");
-    expect(choice.name.length).toBeLessThanOrEqual(58);
+    expect(choice.title).toBe("1.  2023-11-14 22:13 UTC  019abcde  hey reply codex-rel...");
+    expect(choice.title).not.toContain("\n");
+    expect(choice.title).not.toContain("|");
+    expect(choice.title.length).toBeLessThanOrEqual(58);
   });
 
   it("numbers choices after newest-first sorting", () => {
@@ -107,13 +106,13 @@ describe("resume helpers", () => {
 
     const choices = createResumeChoices(findResumeCandidates(data, "/repo/app"));
 
-    expect(choices.map((choice) => [choice.value, choice.name.split(".")[0].trim()])).toEqual([
+    expect(choices.map((choice) => [choice.value, choice.title.split(".")[0].trim()])).toEqual([
       ["newer-thread", "1"],
       ["older-thread", "2"]
     ]);
   });
 
-  it("configures the interactive picker to stop at the end of the list", () => {
+  it("configures the interactive picker page size", () => {
     const data = makeLoadedData(
       Array.from({ length: 14 }, (_, index) =>
         makeThread({
@@ -127,10 +126,9 @@ describe("resume helpers", () => {
 
     const config = createResumePromptConfig(findResumeCandidates(data, "/repo/app"));
 
-    expect(config.loop).toBe(false);
-    expect(config.pageSize).toBe(12);
+    expect(config.maxPerPage).toBe(12);
     expect(config.choices[0].value).toBe("thread-13");
-    expect(config.choices[0].name.trimStart().startsWith("1.")).toBe(true);
+    expect(config.choices[0].title.trimStart().startsWith("1.")).toBe(true);
   });
 
   it("formats the no-match message for the current directory", () => {

@@ -1,4 +1,5 @@
-import { select } from "@inquirer/prompts";
+import { Data, Effect, Terminal } from "effect";
+import { Prompt } from "effect/unstable/cli";
 
 import { hasUsableDisplayPreview, hasUsableDisplayTitle, normalizeTitle } from "./preview.js";
 import { filterThreadsForProject } from "./project.js";
@@ -16,8 +17,7 @@ export type ResumeCandidate = {
 
 export type ResumeChoice = {
   value: string;
-  name: string;
-  short: string;
+  title: string;
   description: string;
 };
 
@@ -28,15 +28,20 @@ export type ResumeChoiceOptions = {
 export type ResumePromptConfig = {
   message: string;
   choices: ResumeChoice[];
-  pageSize: number;
-  loop: false;
+  maxPerPage: number;
 };
 
 const DEFAULT_RESUME_PICKER_PAGE_SIZE = 12;
 const DEFAULT_TERMINAL_COLUMNS = 80;
-const INQUIRER_ROW_PREFIX_COLUMNS = 2;
+const PROMPT_ROW_PREFIX_COLUMNS = 2;
 const UPDATED_LABEL_COLUMNS = 20;
 const SHORT_ID_COLUMNS = 8;
+
+export class NonInteractiveTerminal extends Data.TaggedError("NonInteractiveTerminal")<{}> {
+  override get message(): string {
+    return "codex-relink list requires an interactive TTY for stdin and stdout.";
+  }
+}
 
 export function findResumeCandidates(data: LoadedCodexData, cwd: string): ResumeCandidate[] {
   return filterThreadsForProject(data, cwd)
@@ -53,11 +58,10 @@ export function createResumeChoices(candidates: readonly ResumeCandidate[], opti
 
   return candidates.map((candidate, index) => ({
     value: candidate.id,
-    name: formatResumeChoiceName(candidate, index + 1, {
+    title: formatResumeChoiceName(candidate, index + 1, {
       numberWidth,
       terminalColumns: options.terminalColumns
     }),
-    short: candidate.shortId,
     description: `${candidate.resumeCommand} (${candidate.id})`
   }));
 }
@@ -66,15 +70,16 @@ export function createResumePromptConfig(candidates: readonly ResumeCandidate[],
   return {
     message: "Select Codex chat",
     choices: createResumeChoices(candidates, options),
-    pageSize: Math.max(1, Math.min(DEFAULT_RESUME_PICKER_PAGE_SIZE, candidates.length)),
-    loop: false
+    maxPerPage: Math.max(1, Math.min(DEFAULT_RESUME_PICKER_PAGE_SIZE, candidates.length))
   };
 }
 
-export async function selectResumeCandidate(candidates: readonly ResumeCandidate[]): Promise<ResumeCandidate> {
-  assertInteractiveTty();
+export const selectResumeCandidate = Effect.fn("Resume.selectResumeCandidate")(function*(candidates: readonly ResumeCandidate[]) {
+  yield* assertInteractiveTty;
 
-  const selectedId = await select(createResumePromptConfig(candidates, { terminalColumns: process.stdout.columns }));
+  const terminal = yield* Terminal.Terminal;
+  const terminalColumns = yield* terminal.columns;
+  const selectedId = yield* Prompt.run(Prompt.select(createResumePromptConfig(candidates, { terminalColumns })));
 
   const selected = candidates.find((candidate) => candidate.id === selectedId);
   if (!selected) {
@@ -82,7 +87,7 @@ export async function selectResumeCandidate(candidates: readonly ResumeCandidate
   }
 
   return selected;
-}
+});
 
 export function formatResumeCommand(threadId: string): string {
   return `codex resume ${threadId}`;
@@ -122,7 +127,7 @@ export function formatResumeChoiceName(
     candidate.shortId.padEnd(SHORT_ID_COLUMNS)
   ].join("  ");
   const terminalColumns = Math.max(1, options.terminalColumns ?? DEFAULT_TERMINAL_COLUMNS);
-  const maxTitleLength = Math.max(0, terminalColumns - INQUIRER_ROW_PREFIX_COLUMNS - prefix.length - 2);
+  const maxTitleLength = Math.max(0, terminalColumns - PROMPT_ROW_PREFIX_COLUMNS - prefix.length - 2);
 
   return `${prefix}  ${truncateInline(candidate.title, maxTitleLength)}`.trimEnd();
 }
@@ -155,10 +160,6 @@ export function formatUpdatedTime(thread: ThreadRow): string {
 
   const iso = new Date(time).toISOString();
   return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
-}
-
-export function isPromptExit(error: unknown): boolean {
-  return error instanceof Error && ["AbortPromptError", "CancelPromptError", "ExitPromptError"].includes(error.name);
 }
 
 function toResumeCandidate(thread: ThreadRow, transcript?: TranscriptMetadata): ResumeCandidate {
@@ -198,8 +199,6 @@ function truncateInline(value: string, maxLength: number): string {
   return `${cleaned.slice(0, maxLength - 3).trimEnd()}...`;
 }
 
-function assertInteractiveTty(): void {
-  if (!process.stdin.isTTY || !process.stdout.isTTY) {
-    throw new Error("codex-relink list requires an interactive TTY for stdin and stdout.");
-  }
-}
+const assertInteractiveTty = Effect.sync(() => process.stdin.isTTY === true && process.stdout.isTTY === true).pipe(
+  Effect.flatMap((isInteractive) => (isInteractive ? Effect.void : new NonInteractiveTerminal()))
+);
