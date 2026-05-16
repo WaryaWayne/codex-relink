@@ -6,8 +6,6 @@ import {
   createResumePromptConfig,
   findResumeCandidates,
   formatCliHeader,
-  formatLatestMatchCheckpoint,
-  formatListMatchCheckpoint,
   formatNoChatsFound,
   formatReadingLine,
   formatResumeChoiceName,
@@ -24,12 +22,19 @@ import type {
 } from "./types.js";
 
 describe("resume helpers", () => {
-  const expectedCliNameDiagram = [
+  const expectedCliIcon = [
     [" ████", "████ "].join(" "),
     ["█    ", "█   █"].join(" "),
     ["█    ", "████ "].join(" "),
     ["█    ", "█  █ "].join(" "),
     [" ████", "█   █"].join(" "),
+  ].join("\n");
+  const expectedCliHeader = [
+    expectedCliIcon.split("\n").map((line) => `  ${line}`).join("\n"),
+    "",
+    "  codex-relink",
+    "  Find Codex chats for this project.",
+    "  Print a codex resume command.",
   ].join("\n");
 
   it.effect("finds matching chats and returns newest first", () =>
@@ -277,26 +282,18 @@ describe("resume helpers", () => {
     "formats minimal CLI header, reading, and checkpoint messages",
     () =>
       Effect.gen(function* () {
-        expect(formatCliHeader()).toBe(
-          `${expectedCliNameDiagram}\n  ~/.codex -> current directory -> codex resume`,
-        );
-        expect(
-          formatCliHeader({ codexHome: "/tmp/codex", color: true }),
-        ).toContain("/tmp/codex -> current directory -> codex resume");
+        expect(formatCliHeader()).toBe(expectedCliHeader);
+        expect(formatCliHeader()).not.toContain("~/.codex -> current directory -> codex resume");
+
+        const coloredHeader = formatCliHeader({
+          codexHome: "/tmp/codex",
+          color: true,
+        });
+        expect(coloredHeader).toContain("\x1B[");
+        expect(coloredHeader).toContain("codex-relink");
+        expect(coloredHeader).not.toContain("/tmp/codex -> current directory -> codex resume");
         expect(formatReadingLine("~/.codex", "/repo/app")).toBe(
           "Reading Codex chats from ~/.codex for /repo/app.",
-        );
-        expect(formatLatestMatchCheckpoint(1)).toBe(
-          "Checkpoint: found 1 matching chat. Printing latest resume command.",
-        );
-        expect(formatLatestMatchCheckpoint(0)).toBe(
-          "Checkpoint: found 0 matching chats. No resume command printed.",
-        );
-        expect(formatListMatchCheckpoint(1)).toBe(
-          "Checkpoint: found 1 matching chat. Opening picker.",
-        );
-        expect(formatListMatchCheckpoint(0)).toBe(
-          "Checkpoint: found 0 matching chats. No picker opened.",
         );
         expect(formatUnknownSubcommandError("wpw")).toContain(
           'Error: unknown subcommand "wpw"',

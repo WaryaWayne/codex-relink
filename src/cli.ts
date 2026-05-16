@@ -6,8 +6,6 @@ import { Command, Flag } from "effect/unstable/cli";
 import {
   findResumeCandidates,
   formatCliHeader,
-  formatLatestMatchCheckpoint,
-  formatListMatchCheckpoint,
   formatNoChatsFound,
   formatReadingLine,
   getLatestResumeCandidate,
@@ -42,7 +40,6 @@ const latest = Command.make(
     const options = yield* root;
     const cwd = yield* currentWorkingDirectory;
     const candidates = yield* loadResumeCandidates(options.codexHome, cwd);
-    yield* Console.error(formatLatestMatchCheckpoint(candidates.length));
     const candidate = getLatestResumeCandidate(candidates);
 
     if (!candidate) {
@@ -65,7 +62,6 @@ const list = Command.make(
     const options = yield* root;
     const cwd = yield* currentWorkingDirectory;
     const candidates = yield* loadResumeCandidates(options.codexHome, cwd);
-    yield* Console.error(formatListMatchCheckpoint(candidates.length));
 
     if (candidates.length === 0) {
       yield* Console.log(formatNoChatsFound(cwd));
@@ -88,7 +84,7 @@ const runCommand = Command.run(app, { version: VERSION });
 const main = Effect.gen(function* () {
   const unknownSubcommand = getUnknownSubcommand(process.argv.slice(2));
   if (unknownSubcommand !== null) {
-    yield* Console.error(formatCliHeader({ color: process.stderr.isTTY === true }));
+    yield* Console.error(formatCliHeader({ color: stderrSupportsColor() }));
     yield* Console.error(formatUnknownSubcommandError(unknownSubcommand));
     yield* setExitCode(1);
     return;
@@ -112,11 +108,23 @@ NodeRuntime.runMain(main);
 
 function loadResumeCandidates(codexHome: string, cwd: string) {
   return Effect.gen(function* () {
-    yield* Console.error(formatCliHeader({ codexHome, color: process.stderr.isTTY === true }));
+    yield* Console.error(formatCliHeader({ codexHome, color: stderrSupportsColor() }));
     const readingLine = formatReadingLine(codexHome, cwd);
     const data = yield* withStderrSpinner(readingLine, loadCodexData({ codexHome }));
     return findResumeCandidates(data, cwd);
   });
+}
+
+function stderrSupportsColor(): boolean {
+  if (process.stderr.isTTY !== true) {
+    return false;
+  }
+
+  if (typeof process.stderr.hasColors === "function") {
+    return process.stderr.hasColors();
+  }
+
+  return true;
 }
 
 function withStderrSpinner<A, E, R>(

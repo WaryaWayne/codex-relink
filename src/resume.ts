@@ -49,10 +49,11 @@ const PROMPT_ROW_PREFIX_COLUMNS = 2;
 const UPDATED_LABEL_COLUMNS = 20;
 const SHORT_ID_COLUMNS = 8;
 const ANSI_BOLD = "\x1B[1m";
-const ANSI_BLACK_BRIGHT = "\x1B[90m";
 const ANSI_CYAN_BRIGHT = "\x1B[96m";
+const ANSI_GREEN_BRIGHT = "\x1B[92m";
 const ANSI_RESET = "\x1B[0m";
-const CLI_NAME_DIAGRAM = [
+const CLI_HEADER_INDENT = "  ";
+const CLI_ASCII_ICON = [
   [" ████", "████ "].join(" "),
   ["█    ", "█   █"].join(" "),
   ["█    ", "████ "].join(" "),
@@ -151,35 +152,32 @@ export function formatNoChatsFound(cwd: string): string {
 export function formatCliHeader(
   options: { codexHome?: string; color?: boolean } = {},
 ): string {
-  const diagram = `${options.codexHome ?? "~/.codex"} -> current directory -> codex resume`;
+  const name = "codex-relink";
+  const findLine = "Find Codex chats for this project.";
+
   if (options.color === true) {
     return [
-      `${ANSI_BOLD}${ANSI_CYAN_BRIGHT}${CLI_NAME_DIAGRAM}${ANSI_RESET}`,
-      `  ${ANSI_BLACK_BRIGHT}${diagram}${ANSI_RESET}`,
+      indentHeaderBlock(CLI_ASCII_ICON),
+      "",
+      `${CLI_HEADER_INDENT}${ANSI_BOLD}${ANSI_GREEN_BRIGHT}${name}${ANSI_RESET}`,
+      `${CLI_HEADER_INDENT}${ANSI_CYAN_BRIGHT}Find${ANSI_RESET} Codex chats for this project.`,
     ].join("\n");
   }
 
-  return [CLI_NAME_DIAGRAM, `  ${diagram}`].join("\n");
+  return [
+    indentHeaderBlock(CLI_ASCII_ICON),
+    "",
+    `${CLI_HEADER_INDENT}${name}`,
+    `${CLI_HEADER_INDENT}${findLine}`,
+  ].join("\n");
+}
+
+function indentHeaderBlock(value: string): string {
+  return value.split("\n").map((line) => `${CLI_HEADER_INDENT}${line}`).join("\n");
 }
 
 export function formatReadingLine(codexHome: string, cwd: string): string {
   return `Reading Codex chats from ${codexHome} for ${cwd}.`;
-}
-
-export function formatLatestMatchCheckpoint(candidateCount: number): string {
-  const chatLabel = candidateCount === 1 ? "chat" : "chats";
-  const nextStep =
-    candidateCount === 0
-      ? "No resume command printed."
-      : "Printing latest resume command.";
-  return `Checkpoint: found ${candidateCount} matching ${chatLabel}. ${nextStep}`;
-}
-
-export function formatListMatchCheckpoint(candidateCount: number): string {
-  const chatLabel = candidateCount === 1 ? "chat" : "chats";
-  const nextStep =
-    candidateCount === 0 ? "No picker opened." : "Opening picker.";
-  return `Checkpoint: found ${candidateCount} matching ${chatLabel}. ${nextStep}`;
 }
 
 export function formatUnknownSubcommandError(subcommand: string): string {
