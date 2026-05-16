@@ -17,9 +17,11 @@
   "main": "./dist/cli.js",
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "codex-relink-cli-twitter-image-warya-wayne.png"
   ],
   "scripts": {
+    "publish": "npm publish --access public --ignore-scripts",
     "build": "tsgo -p tsconfig.json",
     "test": "vitest run",
     "typecheck": "tsgo --noEmit",
