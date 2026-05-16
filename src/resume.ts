@@ -53,6 +53,7 @@ const ANSI_CYAN_BRIGHT = "\x1B[96m";
 const ANSI_GREEN_BRIGHT = "\x1B[92m";
 const ANSI_RESET = "\x1B[0m";
 const CLI_HEADER_INDENT = "  ";
+const CLI_BOTTOM_PADDING = ["", ""];
 const CLI_ASCII_ICON = [
   [" ████", "████ "].join(" "),
   ["█    ", "█   █"].join(" "),
@@ -146,11 +147,18 @@ export function formatResumeCommand(threadId: string): string {
 }
 
 export function formatSelectedResumeResult(resumeCommand: string): string {
-  return ["", "  Copy the command below to resume your chat:", "", `  ${resumeCommand}`, "", ""].join("\n");
+  return formatCliOutputBlock([
+    "",
+    "  Copy the command below to resume your chat:",
+    "",
+    `  ${resumeCommand}`,
+  ]);
 }
 
 export function formatNoChatsFound(cwd: string): string {
-  return `No Codex chats were found for the current directory: ${cwd}`;
+  return formatCliOutputBlock([
+    `No Codex chats were found for the current directory: ${cwd}`,
+  ]);
 }
 
 export function formatCliHeader(
@@ -185,10 +193,14 @@ export function formatReadingLine(codexHome: string, cwd: string): string {
 }
 
 export function formatUnknownSubcommandError(subcommand: string): string {
-  return [
+  return formatCliOutputBlock([
     `Error: unknown subcommand "${subcommand}" for "codex-relink".`,
     `Use "codex-relink --help" to see available commands: latest, list.`,
-  ].join("\n");
+  ]);
+}
+
+function formatCliOutputBlock(lines: readonly string[]): string {
+  return [...lines, ...CLI_BOTTOM_PADDING].join("\n");
 }
 
 export function resolveResumeTitle(

@@ -102,7 +102,7 @@ describe("resume helpers", () => {
   it.effect("formats the interactive selection result with a clear label", () =>
     Effect.gen(function* () {
       expect(formatSelectedResumeResult("codex resume 019abcdef")).toBe(
-        "\n  codex-relink result\n  codex resume 019abcdef",
+        "\n  Copy the command below to resume your chat:\n\n  codex resume 019abcdef\n\n",
       );
     }),
   );
@@ -281,7 +281,7 @@ describe("resume helpers", () => {
   it.effect("formats the no-match message for the current directory", () =>
     Effect.gen(function* () {
       expect(formatNoChatsFound("/repo/app")).toBe(
-        "No Codex chats were found for the current directory: /repo/app",
+        "No Codex chats were found for the current directory: /repo/app\n\n",
       );
     }),
   );
@@ -305,6 +305,9 @@ describe("resume helpers", () => {
         );
         expect(formatUnknownSubcommandError("wpw")).toContain(
           'Error: unknown subcommand "wpw"',
+        );
+        expect(formatUnknownSubcommandError("wpw").endsWith("\n\n")).toBe(
+          true,
         );
       }),
   );

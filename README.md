@@ -30,10 +30,12 @@ Or from this checkout without installing:
 node dist/cli.js latest
 ```
 
-The command finds Codex chats matching `process.cwd()`, selects the newest chat by `updated_at_ms`, `updated_at`, `created_at_ms`, then `created_at`, and prints only:
+The command finds Codex chats matching `process.cwd()`, selects the newest chat by `updated_at_ms`, `updated_at`, `created_at_ms`, then `created_at`, and prints:
 
 ```text
-codex resume <thread-id>
+  Copy the command below to resume your chat:
+
+  codex resume <thread-id>
 ```
 
 If there are no matching chats, it prints a short message for the current directory.
@@ -55,7 +57,9 @@ node dist/cli.js list
 `list` shows an interactive picker, newest first. Rows are numbered so `1` is always the latest matching chat, and the picker stops at the oldest chat instead of wrapping around. Each row includes the number, updated time, short thread id, and title or fallback. Press enter to select the highlighted chat. After selection, it prints:
 
 ```text
-codex resume <thread-id>
+  Copy the command below to resume your chat:
+
+  codex resume <thread-id>
 ```
 
 ## Options
