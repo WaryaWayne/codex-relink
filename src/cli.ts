@@ -49,7 +49,7 @@ const latest = Command.make(
       return;
     }
 
-    yield* Console.log(candidate.resumeCommand);
+    yield* Console.log(formatSelectedResumeResult(candidate.resumeCommand));
   }),
 ).pipe(
   Command.withDescription(

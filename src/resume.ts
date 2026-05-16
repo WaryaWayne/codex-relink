@@ -146,7 +146,7 @@ export function formatResumeCommand(threadId: string): string {
 }
 
 export function formatSelectedResumeResult(resumeCommand: string): string {
-  return ["", "  Copy the command below to resume your chat:", `  ${resumeCommand}`].join("\n");
+  return ["", "  Copy the command below to resume your chat:", "", `  ${resumeCommand}`, "", ""].join("\n");
 }
 
 export function formatNoChatsFound(cwd: string): string {
