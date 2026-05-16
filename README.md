@@ -54,7 +54,7 @@ Or from this checkout without installing:
 node dist/cli.js list
 ```
 
-`list` shows an interactive picker, newest first. Rows are numbered so `1` is always the latest matching chat, and the picker stops at the oldest chat instead of wrapping around. Each row includes the number, updated time, short thread id, and title or fallback. Press enter to select the highlighted chat. After selection, it prints:
+`list` shows an interactive picker, newest first. Rows are numbered so `1` is always the latest matching chat, and the picker stops at the oldest chat instead of wrapping around. Each row includes the number, updated time, short thread id, and title or fallback. Press enter to select the highlighted chat. After selection, the accepted prompt line shows `Chosen ID: <short-id>` before it prints:
 
 ```text
   Copy the command below to resume your chat:

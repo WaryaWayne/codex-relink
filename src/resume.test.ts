@@ -11,6 +11,8 @@ import {
   formatResumeChoiceName,
   formatResumeCommand,
   formatSelectedResumeResult,
+  formatSelectedResumeChoiceName,
+  formatSubmittedResumePromptLine,
   formatUpdatedTime,
   formatUnknownSubcommandError,
   getLatestResumeCandidate,
@@ -177,6 +179,32 @@ describe("resume helpers", () => {
       );
       expect(formatResumeChoiceName(candidate)).toContain("019abcde");
       expect(formatResumeChoiceName(candidate)).not.toContain("|");
+    }),
+  );
+
+  it.effect("formats the submitted selection line without the title", () =>
+    Effect.gen(function* () {
+      const data = makeLoadedData([
+        makeThread({
+          id: "019abcdef1234567890",
+          cwd: "/repo/app",
+          title: "Resume helper implementation",
+          updated_at_ms: epochMillis("2023-11-14T22:13:20.000Z"),
+        }),
+      ]);
+
+      const candidate = findResumeCandidates(data, "/repo/app", {
+        timeZone: "America/Toronto",
+      })[0];
+
+      expect(formatSelectedResumeChoiceName(candidate)).toBe("  019abcde");
+      expect(formatSubmittedResumePromptLine(candidate)).toBe(
+        "✔   Chosen ID:   019abcde",
+      );
+      expect(formatSubmittedResumePromptLine(candidate)).not.toContain(
+        "Resume helper implementation",
+      );
+      expect(formatSubmittedResumePromptLine(candidate)).not.toContain("\x1B");
     }),
   );
 

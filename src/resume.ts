@@ -48,6 +48,10 @@ const DEFAULT_TERMINAL_COLUMNS = 80;
 const PROMPT_ROW_PREFIX_COLUMNS = 2;
 const UPDATED_LABEL_COLUMNS = 20;
 const SHORT_ID_COLUMNS = 8;
+const ANSI_CURSOR_HIDE = "\x1B[?25l";
+const ANSI_CURSOR_UP_ONE = "\x1B[1A";
+const ANSI_ERASE_LINE = "\x1B[2K";
+const ANSI_CURSOR_LINE_START = "\r";
 const ANSI_BOLD = "\x1B[1m";
 const ANSI_CYAN_BRIGHT = "\x1B[96m";
 const ANSI_GREEN_BRIGHT = "\x1B[92m";
@@ -55,6 +59,11 @@ const ANSI_RESET = "\x1B[0m";
 const CLI_HEADER_INDENT = "  ";
 const CLI_BLOCK_INDENT = "  ";
 const CLI_BOTTOM_PADDING = [""];
+const PROMPT_LEADING_SYMBOL = "?";
+const PROMPT_SUBMITTED_SYMBOL = "✔";
+const PROMPT_TRAILING_SYMBOL = "›";
+const PROMPT_SELECTED_CHOICE_PREFIX = "❯ ";
+const PROMPT_CHOICE_PREFIX = "  ";
 const CLI_ASCII_ICON = [
   [" ████", "████ "].join(" "),
   ["█    ", "█   █"].join(" "),
@@ -62,6 +71,7 @@ const CLI_ASCII_ICON = [
   ["█    ", "█  █ "].join(" "),
   [" ████", "█   █"].join(" "),
 ].join("\n");
+const PromptAction = Data.taggedEnum<Prompt.ActionDefinition>();
 
 export class NonInteractiveTerminal extends Data.TaggedError(
   "NonInteractiveTerminal",
@@ -129,16 +139,9 @@ export const selectResumeCandidate = Effect.fn("Resume.selectResumeCandidate")(
     const terminal = yield* Terminal.Terminal;
     const terminalColumns = yield* terminal.columns;
     yield* Console.log("");
-    const selectedId = yield* Prompt.run(
-      Prompt.select(createResumePromptConfig(candidates, { terminalColumns })),
+    const selected = yield* Prompt.run(
+      createResumeSelectPrompt(candidates, { terminalColumns }),
     );
-
-    const selected = candidates.find(
-      (candidate) => candidate.id === selectedId,
-    );
-    if (!selected) {
-      throw new Error(`Selected Codex chat was not found: ${selectedId}`);
-    }
 
     return selected;
   },
@@ -264,6 +267,20 @@ export function formatResumeChoiceName(
   return `${CLI_BLOCK_INDENT}${prefix}  ${truncateInline(candidate.title, maxTitleLength)}`.trimEnd();
 }
 
+export function formatSelectedResumeChoiceName(
+  candidate: ResumeCandidate,
+): string {
+  return `${CLI_BLOCK_INDENT}${[
+    candidate.shortId.padEnd(SHORT_ID_COLUMNS),
+  ].join("  ")}`.trimEnd();
+}
+
+export function formatSubmittedResumePromptLine(
+  candidate: ResumeCandidate,
+): string {
+  return `${PROMPT_SUBMITTED_SYMBOL} ${CLI_BLOCK_INDENT}Chosen ID: ${formatSelectedResumeChoiceName(candidate)}`;
+}
+
 export function getThreadResumeTime(thread: ThreadRow): number {
   if (
     typeof thread.updated_at_ms === "number" &&
@@ -329,6 +346,142 @@ function compareResumeCandidatesNewestFirst(
   right: ResumeCandidate,
 ): number {
   return right.sortTime - left.sortTime || right.id.localeCompare(left.id);
+}
+
+type ResumeSelectState = number;
+
+function createResumeSelectPrompt(
+  candidates: readonly ResumeCandidate[],
+  options: ResumeChoiceOptions = {},
+): Prompt.Prompt<ResumeCandidate> {
+  const numberWidth = Math.max(1, String(candidates.length).length);
+  const maxPerPage = Math.max(
+    1,
+    Math.min(DEFAULT_RESUME_PICKER_PAGE_SIZE, candidates.length),
+  );
+  return Prompt.custom<ResumeSelectState, ResumeCandidate>(0, {
+    render: (state, action) =>
+      Effect.succeed(renderResumeSelectPrompt(state, action, candidates, {
+        maxPerPage,
+        numberWidth,
+        terminalColumns: options.terminalColumns,
+      })),
+    process: (input, state) =>
+      processResumeSelectPromptInput(input, state, candidates),
+    clear: (state) =>
+      Effect.succeed(clearResumeSelectPrompt(state, candidates.length, maxPerPage)),
+  });
+}
+
+function renderResumeSelectPrompt(
+  state: ResumeSelectState,
+  action: Prompt.Action<ResumeSelectState, ResumeCandidate>,
+  candidates: readonly ResumeCandidate[],
+  options: ResumeChoiceOptions & { maxPerPage: number; numberWidth: number },
+): string {
+  if (action._tag === "Submit") {
+    return `${formatSubmittedResumePromptLine(action.value)}\n`;
+  }
+
+  if (action._tag === "Beep") {
+    return "\x07";
+  }
+
+  const nextState = action.state;
+  const range = getResumeSelectVisibleRange(
+    nextState,
+    candidates.length,
+    options.maxPerPage,
+  );
+  const rows = candidates
+    .slice(range.startIndex, range.endIndex)
+    .map((candidate, offset) => {
+      const index = range.startIndex + offset;
+      const prefix = index === nextState
+        ? PROMPT_SELECTED_CHOICE_PREFIX
+        : PROMPT_CHOICE_PREFIX;
+      return `${prefix}${formatResumeChoiceName(candidate, index + 1, {
+        numberWidth: options.numberWidth,
+        terminalColumns: options.terminalColumns,
+      })}`;
+    });
+
+  return [
+    `${ANSI_CURSOR_HIDE}${PROMPT_LEADING_SYMBOL} ${CLI_BLOCK_INDENT}Select Codex chat ${PROMPT_TRAILING_SYMBOL}`,
+    ...rows,
+  ].join("\n");
+}
+
+function processResumeSelectPromptInput(
+  input: Terminal.UserInput,
+  state: ResumeSelectState,
+  candidates: readonly ResumeCandidate[],
+): Effect.Effect<Prompt.Action<ResumeSelectState, ResumeCandidate>> {
+  switch (input.key.name) {
+    case "k":
+    case "up": {
+      return Effect.succeed(
+        PromptAction.NextFrame({
+          state: state === 0 ? candidates.length - 1 : state - 1,
+        }),
+      );
+    }
+    case "j":
+    case "down":
+    case "tab": {
+      return Effect.succeed(
+        PromptAction.NextFrame({
+          state: state === candidates.length - 1 ? 0 : state + 1,
+        }),
+      );
+    }
+    case "enter":
+    case "return": {
+      const selected = candidates[state];
+      return Effect.succeed(
+        selected
+          ? PromptAction.Submit({ value: selected })
+          : PromptAction.Beep(),
+      );
+    }
+    default: {
+      return Effect.succeed(PromptAction.Beep());
+    }
+  }
+}
+
+function clearResumeSelectPrompt(
+  state: ResumeSelectState,
+  total: number,
+  maxPerPage: number,
+): string {
+  const range = getResumeSelectVisibleRange(state, total, maxPerPage);
+  return eraseTerminalLines(1 + range.endIndex - range.startIndex);
+}
+
+function getResumeSelectVisibleRange(
+  state: ResumeSelectState,
+  total: number,
+  maxPerPage: number,
+): { startIndex: number; endIndex: number } {
+  const max = Math.max(1, Math.min(total, maxPerPage));
+  const startIndex = Math.max(
+    0,
+    Math.min(total - max, state - Math.floor(max / 2)),
+  );
+  return {
+    startIndex,
+    endIndex: Math.min(total, startIndex + max),
+  };
+}
+
+function eraseTerminalLines(lineCount: number): string {
+  const lines = Math.max(1, lineCount);
+  let output = `${ANSI_CURSOR_LINE_START}${ANSI_ERASE_LINE}`;
+  for (let index = 1; index < lines; index++) {
+    output += `${ANSI_CURSOR_UP_ONE}${ANSI_CURSOR_LINE_START}${ANSI_ERASE_LINE}`;
+  }
+  return output;
 }
 
 function shortThreadId(threadId: string): string {
