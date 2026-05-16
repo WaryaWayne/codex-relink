@@ -1,5 +1,7 @@
 # codex-relink
 
+![codex-relink CLI hero image](./codex-relink-cli-twitter-image-warya-wayne.png)
+
 `codex-relink` is a small read-only helper for finding missing or hard-to-locate Codex CLI chats that match the current working directory and printing the command needed to resume them.
 
 Use it when a Codex chat looks lost, missing from the picker, or disconnected from the project you were working in, but the local Codex storage still has enough data to find the thread id.
