@@ -21,6 +21,23 @@ export type ResumeChoice = {
   description: string;
 };
 
+export type ResumeChoiceOptions = {
+  terminalColumns?: number;
+};
+
+export type ResumePromptConfig = {
+  message: string;
+  choices: ResumeChoice[];
+  pageSize: number;
+  loop: false;
+};
+
+const DEFAULT_RESUME_PICKER_PAGE_SIZE = 12;
+const DEFAULT_TERMINAL_COLUMNS = 80;
+const INQUIRER_ROW_PREFIX_COLUMNS = 2;
+const UPDATED_LABEL_COLUMNS = 20;
+const SHORT_ID_COLUMNS = 8;
+
 export function findResumeCandidates(data: LoadedCodexData, cwd: string): ResumeCandidate[] {
   return filterThreadsForProject(data, cwd)
     .map((thread) => toResumeCandidate(thread, data.transcriptsByThreadId.get(thread.id)))
@@ -31,23 +48,33 @@ export function getLatestResumeCandidate(candidates: readonly ResumeCandidate[])
   return candidates[0] ?? null;
 }
 
-export function createResumeChoices(candidates: readonly ResumeCandidate[]): ResumeChoice[] {
-  return candidates.map((candidate) => ({
+export function createResumeChoices(candidates: readonly ResumeCandidate[], options: ResumeChoiceOptions = {}): ResumeChoice[] {
+  const numberWidth = Math.max(1, String(candidates.length).length);
+
+  return candidates.map((candidate, index) => ({
     value: candidate.id,
-    name: formatResumeChoiceName(candidate),
+    name: formatResumeChoiceName(candidate, index + 1, {
+      numberWidth,
+      terminalColumns: options.terminalColumns
+    }),
     short: candidate.shortId,
     description: `${candidate.resumeCommand} (${candidate.id})`
   }));
 }
 
+export function createResumePromptConfig(candidates: readonly ResumeCandidate[], options: ResumeChoiceOptions = {}): ResumePromptConfig {
+  return {
+    message: "Select Codex chat",
+    choices: createResumeChoices(candidates, options),
+    pageSize: Math.max(1, Math.min(DEFAULT_RESUME_PICKER_PAGE_SIZE, candidates.length)),
+    loop: false
+  };
+}
+
 export async function selectResumeCandidate(candidates: readonly ResumeCandidate[]): Promise<ResumeCandidate> {
   assertInteractiveTty();
 
-  const selectedId = await select({
-    message: "Select Codex chat",
-    choices: createResumeChoices(candidates),
-    pageSize: 12
-  });
+  const selectedId = await select(createResumePromptConfig(candidates, { terminalColumns: process.stdout.columns }));
 
   const selected = candidates.find((candidate) => candidate.id === selectedId);
   if (!selected) {
@@ -82,8 +109,22 @@ export function resolveResumeTitle(thread: ThreadRow, transcript?: TranscriptMet
   return "Untitled Codex chat";
 }
 
-export function formatResumeChoiceName(candidate: ResumeCandidate): string {
-  return `${truncateInline(candidate.title, 64)} | ${candidate.updatedLabel} | ${candidate.shortId}`;
+export function formatResumeChoiceName(
+  candidate: ResumeCandidate,
+  position = 1,
+  options: ResumeChoiceOptions & { numberWidth?: number } = {}
+): string {
+  const numberWidth = options.numberWidth ?? String(position).length;
+  const numberLabel = `${String(position).padStart(numberWidth)}.`;
+  const prefix = [
+    numberLabel,
+    candidate.updatedLabel.padEnd(UPDATED_LABEL_COLUMNS),
+    candidate.shortId.padEnd(SHORT_ID_COLUMNS)
+  ].join("  ");
+  const terminalColumns = Math.max(1, options.terminalColumns ?? DEFAULT_TERMINAL_COLUMNS);
+  const maxTitleLength = Math.max(0, terminalColumns - INQUIRER_ROW_PREFIX_COLUMNS - prefix.length - 2);
+
+  return `${prefix}  ${truncateInline(candidate.title, maxTitleLength)}`.trimEnd();
 }
 
 export function getThreadResumeTime(thread: ThreadRow): number {
@@ -142,8 +183,16 @@ function shortThreadId(threadId: string): string {
 
 function truncateInline(value: string, maxLength: number): string {
   const cleaned = value.replace(/\s+/g, " ").trim();
+  if (maxLength <= 0) {
+    return "";
+  }
+
   if (cleaned.length <= maxLength) {
     return cleaned;
+  }
+
+  if (maxLength <= 3) {
+    return ".".repeat(maxLength);
   }
 
   return `${cleaned.slice(0, maxLength - 3).trimEnd()}...`;

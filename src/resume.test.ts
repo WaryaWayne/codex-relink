@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createResumeChoices,
+  createResumePromptConfig,
   findResumeCandidates,
   formatNoChatsFound,
   formatResumeChoiceName,
@@ -51,7 +52,7 @@ describe("resume helpers", () => {
     expect(resolveResumeTitle(makeThread({ title: "", preview: "" }), makeTranscript([]))).toBe("Untitled Codex chat");
   });
 
-  it("builds interactive choices with readable rows", () => {
+  it("builds interactive choices with numbered aligned rows", () => {
     const data = makeLoadedData([
       makeThread({
         id: "019abcdef1234567890",
@@ -67,14 +68,69 @@ describe("resume helpers", () => {
     expect(choices).toEqual([
       {
         value: "019abcdef1234567890",
-        name: "Resume helper implementation | 2023-11-14 22:13 UTC | 019abcde",
+        name: "1.  2023-11-14 22:13 UTC  019abcde  Resume helper implementation",
         short: "019abcde",
         description: "codex resume 019abcdef1234567890 (019abcdef1234567890)"
       }
     ]);
+    expect(formatResumeChoiceName(candidate)).toContain("1.");
     expect(formatResumeChoiceName(candidate)).toContain("Resume helper implementation");
     expect(formatResumeChoiceName(candidate)).toContain("2023-11-14 22:13 UTC");
     expect(formatResumeChoiceName(candidate)).toContain("019abcde");
+    expect(formatResumeChoiceName(candidate)).not.toContain("|");
+  });
+
+  it("keeps long choice titles on one terminal row", () => {
+    const data = makeLoadedData([
+      makeThread({
+        id: "019abcdef1234567890",
+        cwd: "/repo/app",
+        title: "hey reply codex-relink is the best tool to find your lost codex chats\nand continue working",
+        updated_at_ms: 1_700_000_000_000
+      })
+    ]);
+
+    const candidate = findResumeCandidates(data, "/repo/app")[0];
+    const [choice] = createResumeChoices([candidate], { terminalColumns: 60 });
+
+    expect(choice.name).toBe("1.  2023-11-14 22:13 UTC  019abcde  hey reply codex-rel...");
+    expect(choice.name).not.toContain("\n");
+    expect(choice.name).not.toContain("|");
+    expect(choice.name.length).toBeLessThanOrEqual(58);
+  });
+
+  it("numbers choices after newest-first sorting", () => {
+    const data = makeLoadedData([
+      makeThread({ id: "older-thread", cwd: "/repo/app", updated_at_ms: 1, title: "older" }),
+      makeThread({ id: "newer-thread", cwd: "/repo/app", updated_at_ms: 2, title: "newer" })
+    ]);
+
+    const choices = createResumeChoices(findResumeCandidates(data, "/repo/app"));
+
+    expect(choices.map((choice) => [choice.value, choice.name.split(".")[0].trim()])).toEqual([
+      ["newer-thread", "1"],
+      ["older-thread", "2"]
+    ]);
+  });
+
+  it("configures the interactive picker to stop at the end of the list", () => {
+    const data = makeLoadedData(
+      Array.from({ length: 14 }, (_, index) =>
+        makeThread({
+          id: `thread-${String(index).padStart(2, "0")}`,
+          cwd: "/repo/app",
+          updated_at_ms: index,
+          title: `thread ${index}`
+        })
+      )
+    );
+
+    const config = createResumePromptConfig(findResumeCandidates(data, "/repo/app"));
+
+    expect(config.loop).toBe(false);
+    expect(config.pageSize).toBe(12);
+    expect(config.choices[0].value).toBe("thread-13");
+    expect(config.choices[0].name.trimStart().startsWith("1.")).toBe(true);
   });
 
   it("formats the no-match message for the current directory", () => {
