@@ -145,6 +145,10 @@ export function formatResumeCommand(threadId: string): string {
   return `codex resume ${threadId}`;
 }
 
+export function formatSelectedResumeResult(resumeCommand: string): string {
+  return ["", "  Copy the command below to resume your chat:", `  ${resumeCommand}`].join("\n");
+}
+
 export function formatNoChatsFound(cwd: string): string {
   return `No Codex chats were found for the current directory: ${cwd}`;
 }

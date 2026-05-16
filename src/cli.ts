@@ -8,6 +8,7 @@ import {
   formatCliHeader,
   formatNoChatsFound,
   formatReadingLine,
+  formatSelectedResumeResult,
   getLatestResumeCandidate,
   formatUnknownSubcommandError,
   selectResumeCandidate,
@@ -18,6 +19,7 @@ const VERSION = "0.0.1";
 const KNOWN_SUBCOMMANDS = new Set(["latest", "list"]);
 const ACTION_FLAGS = new Set(["--help", "-h", "--version", "--completions"]);
 const FLAGS_WITH_VALUE = new Set(["--codex-home", "--log-level", "--completions"]);
+const STATUS_LINE_INDENT = "  ";
 
 const currentWorkingDirectory = Effect.sync(() => process.cwd());
 
@@ -69,7 +71,7 @@ const list = Command.make(
     }
 
     const selected = yield* selectResumeCandidate(candidates);
-    yield* Console.log(selected.resumeCommand);
+    yield* Console.log(formatSelectedResumeResult(selected.resumeCommand));
   }),
 ).pipe(
   Command.withDescription(
@@ -135,7 +137,7 @@ function withStderrSpinner<A, E, R>(
     startStderrSpinner(message),
     () => effect,
     stopStderrSpinner,
-  ).pipe(Effect.tap(() => Console.error(message)));
+  ).pipe(Effect.tap(() => Console.error(formatCompletedStatusLine(message))));
 }
 
 function startStderrSpinner(message: string): Effect.Effect<Fiber.Fiber<never> | null> {
@@ -168,10 +170,18 @@ function makeStderrSpinner(message: string): Effect.Effect<never> {
     yield* Effect.sync(() => {
       const frame = frames[frameIndex % frames.length];
       frameIndex += 1;
-      process.stderr.write(`\r${frame} ${message}`);
+      process.stderr.write(`\r${formatSpinnerStatusLine(frame, message)}`);
     });
     yield* Effect.sleep("90 millis");
   }).pipe(Effect.forever);
+}
+
+function formatSpinnerStatusLine(frame: string, message: string): string {
+  return `${STATUS_LINE_INDENT}${frame} ${message}`;
+}
+
+function formatCompletedStatusLine(message: string): string {
+  return `${STATUS_LINE_INDENT}${message}`;
 }
 
 const clearStderrSpinner = Effect.sync(() => {

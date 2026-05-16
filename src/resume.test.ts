@@ -10,6 +10,7 @@ import {
   formatReadingLine,
   formatResumeChoiceName,
   formatResumeCommand,
+  formatSelectedResumeResult,
   formatUpdatedTime,
   formatUnknownSubcommandError,
   getLatestResumeCandidate,
@@ -34,7 +35,6 @@ describe("resume helpers", () => {
     "",
     "  codex-relink",
     "  Find Codex chats for this project.",
-    "  Print a codex resume command.",
   ].join("\n");
 
   it.effect("finds matching chats and returns newest first", () =>
@@ -96,6 +96,14 @@ describe("resume helpers", () => {
   it.effect("formats the exact resume command", () =>
     Effect.gen(function* () {
       expect(formatResumeCommand("019abcdef")).toBe("codex resume 019abcdef");
+    }),
+  );
+
+  it.effect("formats the interactive selection result with a clear label", () =>
+    Effect.gen(function* () {
+      expect(formatSelectedResumeResult("codex resume 019abcdef")).toBe(
+        "\n  codex-relink result\n  codex resume 019abcdef",
+      );
     }),
   );
 
