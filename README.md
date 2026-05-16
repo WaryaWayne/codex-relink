@@ -13,6 +13,37 @@ It reads local Codex storage:
 
 It does not edit Codex SQLite, global state, `session_index.jsonl`, titles, previews, cwd values, or user data.
 
+## Install
+
+Install it globally from npm if you want the `codex-relink` command available everywhere:
+
+```bash
+npm install --global codex-relink
+```
+
+Then run it from the project directory whose Codex chats you want to find:
+
+```bash
+codex-relink latest
+codex-relink list
+```
+
+You can also run it without installing anything globally:
+
+```bash
+npx codex-relink latest
+npx codex-relink list
+```
+
+Or with Bun:
+
+```bash
+bunx codex-relink latest
+bunx codex-relink list
+```
+
+All three forms use the current working directory as the project to match against local Codex storage.
+
 ## Build
 
 ```bash
