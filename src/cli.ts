@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
 import { Console, Effect } from "effect";
-import { CliError, Command, Flag } from "effect/unstable/cli";
+import { Command, Flag } from "effect/unstable/cli";
 
 import {
   findResumeCandidates,
@@ -13,12 +13,14 @@ import { loadCodexData } from "./storage.js";
 
 const VERSION = "0.0.1";
 
+const currentWorkingDirectory = Effect.sync(() => process.cwd());
+
 const codexHome = Flag.string("codex-home").pipe(
   Flag.withDescription("Codex home directory"),
   Flag.withDefault("~/.codex"),
 );
 
-const root = Command.make("codex-relink", {}, () => Effect.void).pipe(
+const root = Command.make("codex-relink").pipe(
   Command.withSharedFlags({ codexHome }),
   Command.withDescription(
     "Find Codex chats for the current directory and print resume commands.",
@@ -81,17 +83,11 @@ const main = Command.run(app, { version: VERSION }).pipe(
       Effect.andThen(setExitCode(130)),
     ),
   ),
-  Effect.catch((error: unknown) =>
-    CliError.isCliError(error)
-      ? setExitCode(1)
-      : Console.error(formatError(error)).pipe(Effect.andThen(setExitCode(1))),
-  ),
+  Effect.catch((error: unknown) => Console.error(formatError(error)).pipe(Effect.andThen(setExitCode(1)))),
   Effect.provide(NodeServices.layer),
 );
 
-NodeRuntime.runMain(main, { disableErrorReporting: true });
-
-const currentWorkingDirectory = Effect.sync(() => process.cwd());
+NodeRuntime.runMain(main);
 
 function setExitCode(code: number) {
   return Effect.sync(() => {
