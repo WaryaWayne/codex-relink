@@ -15,150 +15,294 @@ import {
   formatUpdatedTime,
   formatUnknownSubcommandError,
   getLatestResumeCandidate,
-  resolveResumeTitle
+  resolveResumeTitle,
 } from "./resume.js";
-import type { LoadedCodexData, ThreadRow, TranscriptMetadata } from "./types.js";
+import type {
+  LoadedCodexData,
+  ThreadRow,
+  TranscriptMetadata,
+} from "./types.js";
 
 describe("resume helpers", () => {
-  it.effect("finds matching chats and returns newest first", () => Effect.gen(function*() {
-    const data = makeLoadedData([
-      makeThread({ id: "created-seconds", cwd: "/repo/app", created_at: epochSeconds("2023-11-14T22:13:20.000Z") }),
-      makeThread({ id: "updated-ms", cwd: "/repo/app", updated_at_ms: epochMillis("2023-11-14T22:13:24.000Z") }),
-      makeThread({ id: "updated-seconds", cwd: "/repo/app", updated_at: epochSeconds("2023-11-14T22:13:23.000Z") }),
-      makeThread({ id: "created-ms", cwd: "/repo/app", created_at_ms: epochMillis("2023-11-14T22:13:22.000Z") }),
-      makeThread({ id: "other-project", cwd: "/repo/other", updated_at_ms: epochMillis("2027-01-15T08:00:00.000Z") })
-    ]);
+  const expectedCliNameDiagram = [
+    [" ████", "████ "].join(" "),
+    ["█    ", "█   █"].join(" "),
+    ["█    ", "████ "].join(" "),
+    ["█    ", "█  █ "].join(" "),
+    [" ████", "█   █"].join(" "),
+  ].join("\n");
 
-    expect(findResumeCandidates(data, "/repo/app").map((candidate) => candidate.id)).toEqual([
-      "updated-ms",
-      "updated-seconds",
-      "created-ms",
-      "created-seconds"
-    ]);
-  }));
-
-  it.effect("selects the latest candidate", () => Effect.gen(function*() {
-    const data = makeLoadedData([
-      makeThread({ id: "older", cwd: "/repo/app", updated_at_ms: 1 }),
-      makeThread({ id: "newer", cwd: "/repo/app", updated_at_ms: 2 })
-    ]);
-
-    expect(getLatestResumeCandidate(findResumeCandidates(data, "/repo/app"))?.id).toBe("newer");
-  }));
-
-  it.effect("formats the exact resume command", () => Effect.gen(function*() {
-    expect(formatResumeCommand("019abcdef")).toBe("codex resume 019abcdef");
-  }));
-
-  it.effect("uses title, preview, transcript user message, then untitled fallback", () => Effect.gen(function*() {
-    const transcript = makeTranscript(["first real user request"]);
-
-    expect(resolveResumeTitle(makeThread({ title: "Existing title", preview: "Existing preview" }), transcript)).toBe("Existing title");
-    expect(resolveResumeTitle(makeThread({ title: "", preview: "Existing preview" }), transcript)).toBe("Existing preview");
-    expect(resolveResumeTitle(makeThread({ title: "", preview: "" }), transcript)).toBe("first real user request");
-    expect(resolveResumeTitle(makeThread({ title: "", preview: "" }), makeTranscript([]))).toBe("Untitled Codex chat");
-  }));
-
-  it.effect("builds interactive choices with numbered aligned rows", () => Effect.gen(function*() {
-    const data = makeLoadedData([
-      makeThread({
-        id: "019abcdef1234567890",
-        cwd: "/repo/app",
-        title: "Resume helper implementation",
-        updated_at_ms: epochMillis("2023-11-14T22:13:20.000Z")
-      })
-    ]);
-
-    const candidate = findResumeCandidates(data, "/repo/app", { timeZone: "America/Toronto" })[0];
-    const choices = createResumeChoices([candidate]);
-
-    expect(choices).toEqual([
-      {
-        value: "019abcdef1234567890",
-        title: "1.  2023-11-14 17:13 EST  019abcde  Resume helper implementation"
-      }
-    ]);
-    expect(choices[0]).not.toHaveProperty("description");
-    expect(formatResumeChoiceName(candidate)).toContain("1.");
-    expect(formatResumeChoiceName(candidate)).toContain("Resume helper implementation");
-    expect(formatResumeChoiceName(candidate)).toContain("2023-11-14 17:13 EST");
-    expect(formatResumeChoiceName(candidate)).toContain("019abcde");
-    expect(formatResumeChoiceName(candidate)).not.toContain("|");
-  }));
-
-  it.effect("formats updated time in the requested local timezone", () => Effect.gen(function*() {
-    const thread = makeThread({ updated_at_ms: epochMillis("2026-05-16T04:09:00.000Z") });
-
-    expect(formatUpdatedTime(thread, { timeZone: "America/Toronto" })).toBe("2026-05-16 00:09 EDT");
-    expect(formatUpdatedTime(thread, { timeZone: "UTC" })).toBe("2026-05-16 04:09 UTC");
-  }));
-
-  it.effect("keeps long choice titles on one terminal row", () => Effect.gen(function*() {
-    const data = makeLoadedData([
-      makeThread({
-        id: "019abcdef1234567890",
-        cwd: "/repo/app",
-        title: "hey reply codex-relink is the best tool to find your lost codex chats\nand continue working",
-        updated_at_ms: epochMillis("2023-11-14T22:13:20.000Z")
-      })
-    ]);
-
-    const candidate = findResumeCandidates(data, "/repo/app", { timeZone: "America/Toronto" })[0];
-    const [choice] = createResumeChoices([candidate], { terminalColumns: 60 });
-
-    expect(choice.title).toBe("1.  2023-11-14 17:13 EST  019abcde  hey reply codex-rel...");
-    expect(choice.title).not.toContain("\n");
-    expect(choice.title).not.toContain("|");
-    expect(choice.title.length).toBeLessThanOrEqual(58);
-  }));
-
-  it.effect("numbers choices after newest-first sorting", () => Effect.gen(function*() {
-    const data = makeLoadedData([
-      makeThread({ id: "older-thread", cwd: "/repo/app", updated_at_ms: 1, title: "older" }),
-      makeThread({ id: "newer-thread", cwd: "/repo/app", updated_at_ms: 2, title: "newer" })
-    ]);
-
-    const choices = createResumeChoices(findResumeCandidates(data, "/repo/app"));
-
-    expect(choices.map((choice) => [choice.value, choice.title.split(".")[0].trim()])).toEqual([
-      ["newer-thread", "1"],
-      ["older-thread", "2"]
-    ]);
-  }));
-
-  it.effect("configures the interactive picker page size", () => Effect.gen(function*() {
-    const data = makeLoadedData(
-      Array.from({ length: 14 }, (_, index) =>
+  it.effect("finds matching chats and returns newest first", () =>
+    Effect.gen(function* () {
+      const data = makeLoadedData([
         makeThread({
-          id: `thread-${String(index).padStart(2, "0")}`,
+          id: "created-seconds",
           cwd: "/repo/app",
-          updated_at_ms: index,
-          title: `thread ${index}`
-        })
-      )
-    );
+          created_at: epochSeconds("2023-11-14T22:13:20.000Z"),
+        }),
+        makeThread({
+          id: "updated-ms",
+          cwd: "/repo/app",
+          updated_at_ms: epochMillis("2023-11-14T22:13:24.000Z"),
+        }),
+        makeThread({
+          id: "updated-seconds",
+          cwd: "/repo/app",
+          updated_at: epochSeconds("2023-11-14T22:13:23.000Z"),
+        }),
+        makeThread({
+          id: "created-ms",
+          cwd: "/repo/app",
+          created_at_ms: epochMillis("2023-11-14T22:13:22.000Z"),
+        }),
+        makeThread({
+          id: "other-project",
+          cwd: "/repo/other",
+          updated_at_ms: epochMillis("2027-01-15T08:00:00.000Z"),
+        }),
+      ]);
 
-    const config = createResumePromptConfig(findResumeCandidates(data, "/repo/app"));
+      expect(
+        findResumeCandidates(data, "/repo/app").map(
+          (candidate) => candidate.id,
+        ),
+      ).toEqual([
+        "updated-ms",
+        "updated-seconds",
+        "created-ms",
+        "created-seconds",
+      ]);
+    }),
+  );
 
-    expect(config.maxPerPage).toBe(12);
-    expect(config.choices[0].value).toBe("thread-13");
-    expect(config.choices[0].title.trimStart().startsWith("1.")).toBe(true);
-  }));
+  it.effect("selects the latest candidate", () =>
+    Effect.gen(function* () {
+      const data = makeLoadedData([
+        makeThread({ id: "older", cwd: "/repo/app", updated_at_ms: 1 }),
+        makeThread({ id: "newer", cwd: "/repo/app", updated_at_ms: 2 }),
+      ]);
 
-  it.effect("formats the no-match message for the current directory", () => Effect.gen(function*() {
-    expect(formatNoChatsFound("/repo/app")).toBe("No Codex chats were found for the current directory: /repo/app");
-  }));
+      expect(
+        getLatestResumeCandidate(findResumeCandidates(data, "/repo/app"))?.id,
+      ).toBe("newer");
+    }),
+  );
 
-  it.effect("formats minimal CLI header, reading, and checkpoint messages", () => Effect.gen(function*() {
-    expect(formatCliHeader()).toBe("codex-relink\n  ~/.codex -> current directory -> codex resume");
-    expect(formatCliHeader({ codexHome: "/tmp/codex", color: true })).toContain("/tmp/codex -> current directory -> codex resume");
-    expect(formatReadingLine("~/.codex", "/repo/app")).toBe("Reading Codex chats from ~/.codex for /repo/app.");
-    expect(formatLatestMatchCheckpoint(1)).toBe("Checkpoint: found 1 matching chat. Printing latest resume command.");
-    expect(formatLatestMatchCheckpoint(0)).toBe("Checkpoint: found 0 matching chats. No resume command printed.");
-    expect(formatListMatchCheckpoint(1)).toBe("Checkpoint: found 1 matching chat. Opening picker.");
-    expect(formatListMatchCheckpoint(0)).toBe("Checkpoint: found 0 matching chats. No picker opened.");
-    expect(formatUnknownSubcommandError("wpw")).toContain('Error: unknown subcommand "wpw"');
-  }));
+  it.effect("formats the exact resume command", () =>
+    Effect.gen(function* () {
+      expect(formatResumeCommand("019abcdef")).toBe("codex resume 019abcdef");
+    }),
+  );
+
+  it.effect(
+    "uses title, preview, transcript user message, then untitled fallback",
+    () =>
+      Effect.gen(function* () {
+        const transcript = makeTranscript(["first real user request"]);
+
+        expect(
+          resolveResumeTitle(
+            makeThread({
+              title: "Existing title",
+              preview: "Existing preview",
+            }),
+            transcript,
+          ),
+        ).toBe("Existing title");
+        expect(
+          resolveResumeTitle(
+            makeThread({ title: "", preview: "Existing preview" }),
+            transcript,
+          ),
+        ).toBe("Existing preview");
+        expect(
+          resolveResumeTitle(
+            makeThread({ title: "", preview: "" }),
+            transcript,
+          ),
+        ).toBe("first real user request");
+        expect(
+          resolveResumeTitle(
+            makeThread({ title: "", preview: "" }),
+            makeTranscript([]),
+          ),
+        ).toBe("Untitled Codex chat");
+      }),
+  );
+
+  it.effect("builds interactive choices with numbered aligned rows", () =>
+    Effect.gen(function* () {
+      const data = makeLoadedData([
+        makeThread({
+          id: "019abcdef1234567890",
+          cwd: "/repo/app",
+          title: "Resume helper implementation",
+          updated_at_ms: epochMillis("2023-11-14T22:13:20.000Z"),
+        }),
+      ]);
+
+      const candidate = findResumeCandidates(data, "/repo/app", {
+        timeZone: "America/Toronto",
+      })[0];
+      const choices = createResumeChoices([candidate]);
+
+      expect(choices).toEqual([
+        {
+          value: "019abcdef1234567890",
+          title:
+            "1.  2023-11-14 17:13 EST  019abcde  Resume helper implementation",
+        },
+      ]);
+      expect(choices[0]).not.toHaveProperty("description");
+      expect(formatResumeChoiceName(candidate)).toContain("1.");
+      expect(formatResumeChoiceName(candidate)).toContain(
+        "Resume helper implementation",
+      );
+      expect(formatResumeChoiceName(candidate)).toContain(
+        "2023-11-14 17:13 EST",
+      );
+      expect(formatResumeChoiceName(candidate)).toContain("019abcde");
+      expect(formatResumeChoiceName(candidate)).not.toContain("|");
+    }),
+  );
+
+  it.effect("formats updated time in the requested local timezone", () =>
+    Effect.gen(function* () {
+      const thread = makeThread({
+        updated_at_ms: epochMillis("2026-05-16T04:09:00.000Z"),
+      });
+
+      expect(formatUpdatedTime(thread, { timeZone: "America/Toronto" })).toBe(
+        "2026-05-16 00:09 EDT",
+      );
+      expect(formatUpdatedTime(thread, { timeZone: "UTC" })).toBe(
+        "2026-05-16 04:09 UTC",
+      );
+    }),
+  );
+
+  it.effect("keeps long choice titles on one terminal row", () =>
+    Effect.gen(function* () {
+      const data = makeLoadedData([
+        makeThread({
+          id: "019abcdef1234567890",
+          cwd: "/repo/app",
+          title:
+            "hey reply codex-relink is the best tool to find your lost codex chats\nand continue working",
+          updated_at_ms: epochMillis("2023-11-14T22:13:20.000Z"),
+        }),
+      ]);
+
+      const candidate = findResumeCandidates(data, "/repo/app", {
+        timeZone: "America/Toronto",
+      })[0];
+      const [choice] = createResumeChoices([candidate], {
+        terminalColumns: 60,
+      });
+
+      expect(choice.title).toBe(
+        "1.  2023-11-14 17:13 EST  019abcde  hey reply codex-rel...",
+      );
+      expect(choice.title).not.toContain("\n");
+      expect(choice.title).not.toContain("|");
+      expect(choice.title.length).toBeLessThanOrEqual(58);
+    }),
+  );
+
+  it.effect("numbers choices after newest-first sorting", () =>
+    Effect.gen(function* () {
+      const data = makeLoadedData([
+        makeThread({
+          id: "older-thread",
+          cwd: "/repo/app",
+          updated_at_ms: 1,
+          title: "older",
+        }),
+        makeThread({
+          id: "newer-thread",
+          cwd: "/repo/app",
+          updated_at_ms: 2,
+          title: "newer",
+        }),
+      ]);
+
+      const choices = createResumeChoices(
+        findResumeCandidates(data, "/repo/app"),
+      );
+
+      expect(
+        choices.map((choice) => [
+          choice.value,
+          choice.title.split(".")[0].trim(),
+        ]),
+      ).toEqual([
+        ["newer-thread", "1"],
+        ["older-thread", "2"],
+      ]);
+    }),
+  );
+
+  it.effect("configures the interactive picker page size", () =>
+    Effect.gen(function* () {
+      const data = makeLoadedData(
+        Array.from({ length: 14 }, (_, index) =>
+          makeThread({
+            id: `thread-${String(index).padStart(2, "0")}`,
+            cwd: "/repo/app",
+            updated_at_ms: index,
+            title: `thread ${index}`,
+          }),
+        ),
+      );
+
+      const config = createResumePromptConfig(
+        findResumeCandidates(data, "/repo/app"),
+      );
+
+      expect(config.maxPerPage).toBe(12);
+      expect(config.choices[0].value).toBe("thread-13");
+      expect(config.choices[0].title.trimStart().startsWith("1.")).toBe(true);
+    }),
+  );
+
+  it.effect("formats the no-match message for the current directory", () =>
+    Effect.gen(function* () {
+      expect(formatNoChatsFound("/repo/app")).toBe(
+        "No Codex chats were found for the current directory: /repo/app",
+      );
+    }),
+  );
+
+  it.effect(
+    "formats minimal CLI header, reading, and checkpoint messages",
+    () =>
+      Effect.gen(function* () {
+        expect(formatCliHeader()).toBe(
+          `${expectedCliNameDiagram}\n  ~/.codex -> current directory -> codex resume`,
+        );
+        expect(
+          formatCliHeader({ codexHome: "/tmp/codex", color: true }),
+        ).toContain("/tmp/codex -> current directory -> codex resume");
+        expect(formatReadingLine("~/.codex", "/repo/app")).toBe(
+          "Reading Codex chats from ~/.codex for /repo/app.",
+        );
+        expect(formatLatestMatchCheckpoint(1)).toBe(
+          "Checkpoint: found 1 matching chat. Printing latest resume command.",
+        );
+        expect(formatLatestMatchCheckpoint(0)).toBe(
+          "Checkpoint: found 0 matching chats. No resume command printed.",
+        );
+        expect(formatListMatchCheckpoint(1)).toBe(
+          "Checkpoint: found 1 matching chat. Opening picker.",
+        );
+        expect(formatListMatchCheckpoint(0)).toBe(
+          "Checkpoint: found 0 matching chats. No picker opened.",
+        );
+        expect(formatUnknownSubcommandError("wpw")).toContain(
+          'Error: unknown subcommand "wpw"',
+        );
+      }),
+  );
 });
 
 function epochMillis(input: string): number {
@@ -174,11 +318,11 @@ function makeLoadedData(threads: ThreadRow[]): LoadedCodexData {
     paths: {
       codexHome: "/tmp/codex",
       stateDbPath: "/tmp/codex/state_5.sqlite",
-      sessionsDir: "/tmp/codex/sessions"
+      sessionsDir: "/tmp/codex/sessions",
     },
     threads,
     transcripts: [],
-    transcriptsByThreadId: new Map()
+    transcriptsByThreadId: new Map(),
   };
 }
 
@@ -201,7 +345,7 @@ function makeThread(overrides: Partial<ThreadRow>): ThreadRow {
     git_branch: null,
     git_origin_url: null,
     archived: 0,
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -211,6 +355,6 @@ function makeTranscript(userMessages: string[]): TranscriptMetadata {
     threadId: "thread-1",
     cwdMentions: [],
     userMessages,
-    eventMessages: []
+    eventMessages: [],
   };
 }

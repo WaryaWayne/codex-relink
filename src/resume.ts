@@ -1,9 +1,17 @@
 import { Data, DateTime, Effect, Terminal } from "effect";
 import { Prompt } from "effect/unstable/cli";
 
-import { hasUsableDisplayPreview, hasUsableDisplayTitle, normalizeTitle } from "./preview.js";
+import {
+  hasUsableDisplayPreview,
+  hasUsableDisplayTitle,
+  normalizeTitle,
+} from "./preview.js";
 import { filterThreadsForProject } from "./project.js";
-import type { LoadedCodexData, ThreadRow, TranscriptMetadata } from "./types.js";
+import type {
+  LoadedCodexData,
+  ThreadRow,
+  TranscriptMetadata,
+} from "./types.js";
 
 export type ResumeCandidate = {
   id: string;
@@ -44,57 +52,93 @@ const ANSI_BOLD = "\x1B[1m";
 const ANSI_BLACK_BRIGHT = "\x1B[90m";
 const ANSI_CYAN_BRIGHT = "\x1B[96m";
 const ANSI_RESET = "\x1B[0m";
+const CLI_NAME_DIAGRAM = [
+  [" ████", "████ "].join(" "),
+  ["█    ", "█   █"].join(" "),
+  ["█    ", "████ "].join(" "),
+  ["█    ", "█  █ "].join(" "),
+  [" ████", "█   █"].join(" "),
+].join("\n");
 
-export class NonInteractiveTerminal extends Data.TaggedError("NonInteractiveTerminal")<{}> {
+export class NonInteractiveTerminal extends Data.TaggedError(
+  "NonInteractiveTerminal",
+)<{}> {
   override get message(): string {
     return "codex-relink list requires an interactive TTY for stdin and stdout.";
   }
 }
 
-export function findResumeCandidates(data: LoadedCodexData, cwd: string, options: ResumeCandidateOptions = {}): ResumeCandidate[] {
+export function findResumeCandidates(
+  data: LoadedCodexData,
+  cwd: string,
+  options: ResumeCandidateOptions = {},
+): ResumeCandidate[] {
   return filterThreadsForProject(data, cwd)
-    .map((thread) => toResumeCandidate(thread, data.transcriptsByThreadId.get(thread.id), options))
+    .map((thread) =>
+      toResumeCandidate(
+        thread,
+        data.transcriptsByThreadId.get(thread.id),
+        options,
+      ),
+    )
     .sort(compareResumeCandidatesNewestFirst);
 }
 
-export function getLatestResumeCandidate(candidates: readonly ResumeCandidate[]): ResumeCandidate | null {
+export function getLatestResumeCandidate(
+  candidates: readonly ResumeCandidate[],
+): ResumeCandidate | null {
   return candidates[0] ?? null;
 }
 
-export function createResumeChoices(candidates: readonly ResumeCandidate[], options: ResumeChoiceOptions = {}): ResumeChoice[] {
+export function createResumeChoices(
+  candidates: readonly ResumeCandidate[],
+  options: ResumeChoiceOptions = {},
+): ResumeChoice[] {
   const numberWidth = Math.max(1, String(candidates.length).length);
 
   return candidates.map((candidate, index) => ({
     value: candidate.id,
     title: formatResumeChoiceName(candidate, index + 1, {
       numberWidth,
-      terminalColumns: options.terminalColumns
-    })
+      terminalColumns: options.terminalColumns,
+    }),
   }));
 }
 
-export function createResumePromptConfig(candidates: readonly ResumeCandidate[], options: ResumeChoiceOptions = {}): ResumePromptConfig {
+export function createResumePromptConfig(
+  candidates: readonly ResumeCandidate[],
+  options: ResumeChoiceOptions = {},
+): ResumePromptConfig {
   return {
     message: "Select Codex chat",
     choices: createResumeChoices(candidates, options),
-    maxPerPage: Math.max(1, Math.min(DEFAULT_RESUME_PICKER_PAGE_SIZE, candidates.length))
+    maxPerPage: Math.max(
+      1,
+      Math.min(DEFAULT_RESUME_PICKER_PAGE_SIZE, candidates.length),
+    ),
   };
 }
 
-export const selectResumeCandidate = Effect.fn("Resume.selectResumeCandidate")(function*(candidates: readonly ResumeCandidate[]) {
-  yield* assertInteractiveTty;
+export const selectResumeCandidate = Effect.fn("Resume.selectResumeCandidate")(
+  function* (candidates: readonly ResumeCandidate[]) {
+    yield* assertInteractiveTty;
 
-  const terminal = yield* Terminal.Terminal;
-  const terminalColumns = yield* terminal.columns;
-  const selectedId = yield* Prompt.run(Prompt.select(createResumePromptConfig(candidates, { terminalColumns })));
+    const terminal = yield* Terminal.Terminal;
+    const terminalColumns = yield* terminal.columns;
+    const selectedId = yield* Prompt.run(
+      Prompt.select(createResumePromptConfig(candidates, { terminalColumns })),
+    );
 
-  const selected = candidates.find((candidate) => candidate.id === selectedId);
-  if (!selected) {
-    throw new Error(`Selected Codex chat was not found: ${selectedId}`);
-  }
+    const selected = candidates.find(
+      (candidate) => candidate.id === selectedId,
+    );
+    if (!selected) {
+      throw new Error(`Selected Codex chat was not found: ${selectedId}`);
+    }
 
-  return selected;
-});
+    return selected;
+  },
+);
 
 export function formatResumeCommand(threadId: string): string {
   return `codex resume ${threadId}`;
@@ -104,16 +148,18 @@ export function formatNoChatsFound(cwd: string): string {
   return `No Codex chats were found for the current directory: ${cwd}`;
 }
 
-export function formatCliHeader(options: { codexHome?: string; color?: boolean } = {}): string {
+export function formatCliHeader(
+  options: { codexHome?: string; color?: boolean } = {},
+): string {
   const diagram = `${options.codexHome ?? "~/.codex"} -> current directory -> codex resume`;
   if (options.color === true) {
     return [
-      `${ANSI_BOLD}${ANSI_CYAN_BRIGHT}codex-relink${ANSI_RESET}`,
-      `  ${ANSI_BLACK_BRIGHT}${diagram}${ANSI_RESET}`
+      `${ANSI_BOLD}${ANSI_CYAN_BRIGHT}${CLI_NAME_DIAGRAM}${ANSI_RESET}`,
+      `  ${ANSI_BLACK_BRIGHT}${diagram}${ANSI_RESET}`,
     ].join("\n");
   }
 
-  return ["codex-relink", `  ${diagram}`].join("\n");
+  return [CLI_NAME_DIAGRAM, `  ${diagram}`].join("\n");
 }
 
 export function formatReadingLine(codexHome: string, cwd: string): string {
@@ -122,24 +168,31 @@ export function formatReadingLine(codexHome: string, cwd: string): string {
 
 export function formatLatestMatchCheckpoint(candidateCount: number): string {
   const chatLabel = candidateCount === 1 ? "chat" : "chats";
-  const nextStep = candidateCount === 0 ? "No resume command printed." : "Printing latest resume command.";
+  const nextStep =
+    candidateCount === 0
+      ? "No resume command printed."
+      : "Printing latest resume command.";
   return `Checkpoint: found ${candidateCount} matching ${chatLabel}. ${nextStep}`;
 }
 
 export function formatListMatchCheckpoint(candidateCount: number): string {
   const chatLabel = candidateCount === 1 ? "chat" : "chats";
-  const nextStep = candidateCount === 0 ? "No picker opened." : "Opening picker.";
+  const nextStep =
+    candidateCount === 0 ? "No picker opened." : "Opening picker.";
   return `Checkpoint: found ${candidateCount} matching ${chatLabel}. ${nextStep}`;
 }
 
 export function formatUnknownSubcommandError(subcommand: string): string {
   return [
     `Error: unknown subcommand "${subcommand}" for "codex-relink".`,
-    `Use "codex-relink --help" to see available commands: latest, list.`
+    `Use "codex-relink --help" to see available commands: latest, list.`,
   ].join("\n");
 }
 
-export function resolveResumeTitle(thread: ThreadRow, transcript?: TranscriptMetadata | null): string {
+export function resolveResumeTitle(
+  thread: ThreadRow,
+  transcript?: TranscriptMetadata | null,
+): string {
   if (hasUsableDisplayTitle(thread.title)) {
     return normalizeTitle(thread.title ?? "");
   }
@@ -148,7 +201,9 @@ export function resolveResumeTitle(thread: ThreadRow, transcript?: TranscriptMet
     return normalizeTitle(thread.preview ?? "");
   }
 
-  const firstUserMessage = transcript?.userMessages.find((message) => hasUsableDisplayPreview(message));
+  const firstUserMessage = transcript?.userMessages.find((message) =>
+    hasUsableDisplayPreview(message),
+  );
   if (firstUserMessage) {
     return normalizeTitle(firstUserMessage);
   }
@@ -159,42 +214,63 @@ export function resolveResumeTitle(thread: ThreadRow, transcript?: TranscriptMet
 export function formatResumeChoiceName(
   candidate: ResumeCandidate,
   position = 1,
-  options: ResumeChoiceOptions & { numberWidth?: number } = {}
+  options: ResumeChoiceOptions & { numberWidth?: number } = {},
 ): string {
   const numberWidth = options.numberWidth ?? String(position).length;
   const numberLabel = `${String(position).padStart(numberWidth)}.`;
   const prefix = [
     numberLabel,
     candidate.updatedLabel.padEnd(UPDATED_LABEL_COLUMNS),
-    candidate.shortId.padEnd(SHORT_ID_COLUMNS)
+    candidate.shortId.padEnd(SHORT_ID_COLUMNS),
   ].join("  ");
-  const terminalColumns = Math.max(1, options.terminalColumns ?? DEFAULT_TERMINAL_COLUMNS);
-  const maxTitleLength = Math.max(0, terminalColumns - PROMPT_ROW_PREFIX_COLUMNS - prefix.length - 2);
+  const terminalColumns = Math.max(
+    1,
+    options.terminalColumns ?? DEFAULT_TERMINAL_COLUMNS,
+  );
+  const maxTitleLength = Math.max(
+    0,
+    terminalColumns - PROMPT_ROW_PREFIX_COLUMNS - prefix.length - 2,
+  );
 
   return `${prefix}  ${truncateInline(candidate.title, maxTitleLength)}`.trimEnd();
 }
 
 export function getThreadResumeTime(thread: ThreadRow): number {
-  if (typeof thread.updated_at_ms === "number" && Number.isFinite(thread.updated_at_ms)) {
+  if (
+    typeof thread.updated_at_ms === "number" &&
+    Number.isFinite(thread.updated_at_ms)
+  ) {
     return thread.updated_at_ms;
   }
 
-  if (typeof thread.updated_at === "number" && Number.isFinite(thread.updated_at)) {
+  if (
+    typeof thread.updated_at === "number" &&
+    Number.isFinite(thread.updated_at)
+  ) {
     return thread.updated_at * 1000;
   }
 
-  if (typeof thread.created_at_ms === "number" && Number.isFinite(thread.created_at_ms)) {
+  if (
+    typeof thread.created_at_ms === "number" &&
+    Number.isFinite(thread.created_at_ms)
+  ) {
     return thread.created_at_ms;
   }
 
-  if (typeof thread.created_at === "number" && Number.isFinite(thread.created_at)) {
+  if (
+    typeof thread.created_at === "number" &&
+    Number.isFinite(thread.created_at)
+  ) {
     return thread.created_at * 1000;
   }
 
   return 0;
 }
 
-export function formatUpdatedTime(thread: ThreadRow, options: ResumeCandidateOptions = {}): string {
+export function formatUpdatedTime(
+  thread: ThreadRow,
+  options: ResumeCandidateOptions = {},
+): string {
   const time = getThreadResumeTime(thread);
   if (time <= 0) {
     return "unknown time";
@@ -203,7 +279,11 @@ export function formatUpdatedTime(thread: ThreadRow, options: ResumeCandidateOpt
   return formatLocalTimestamp(time, options);
 }
 
-function toResumeCandidate(thread: ThreadRow, transcript?: TranscriptMetadata, options: ResumeCandidateOptions = {}): ResumeCandidate {
+function toResumeCandidate(
+  thread: ThreadRow,
+  transcript?: TranscriptMetadata,
+  options: ResumeCandidateOptions = {},
+): ResumeCandidate {
   return {
     id: thread.id,
     thread,
@@ -211,11 +291,14 @@ function toResumeCandidate(thread: ThreadRow, transcript?: TranscriptMetadata, o
     shortId: shortThreadId(thread.id),
     updatedLabel: formatUpdatedTime(thread, options),
     resumeCommand: formatResumeCommand(thread.id),
-    sortTime: getThreadResumeTime(thread)
+    sortTime: getThreadResumeTime(thread),
   };
 }
 
-function compareResumeCandidatesNewestFirst(left: ResumeCandidate, right: ResumeCandidate): number {
+function compareResumeCandidatesNewestFirst(
+  left: ResumeCandidate,
+  right: ResumeCandidate,
+): number {
   return right.sortTime - left.sortTime || right.id.localeCompare(left.id);
 }
 
@@ -240,7 +323,10 @@ function truncateInline(value: string, maxLength: number): string {
   return `${cleaned.slice(0, maxLength - 3).trimEnd()}...`;
 }
 
-function formatLocalTimestamp(epochMillis: number, options: ResumeCandidateOptions): string {
+function formatLocalTimestamp(
+  epochMillis: number,
+  options: ResumeCandidateOptions,
+): string {
   const date = DateTime.toDateUtc(DateTime.makeUnsafe(epochMillis));
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: options.timeZone,
@@ -250,18 +336,27 @@ function formatLocalTimestamp(epochMillis: number, options: ResumeCandidateOptio
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
-    timeZoneName: "short"
+    timeZoneName: "short",
   });
-  const parts = new Map(formatter.formatToParts(date).map((part) => [part.type, part.value]));
+  const parts = new Map(
+    formatter.formatToParts(date).map((part) => [part.type, part.value]),
+  );
   const timeZoneName = parts.get("timeZoneName");
   const label = `${getDateTimePart(parts, "year")}-${getDateTimePart(parts, "month")}-${getDateTimePart(parts, "day")} ${getDateTimePart(parts, "hour")}:${getDateTimePart(parts, "minute")}`;
   return timeZoneName ? `${label} ${timeZoneName}` : label;
 }
 
-function getDateTimePart(parts: ReadonlyMap<string, string>, part: string): string {
+function getDateTimePart(
+  parts: ReadonlyMap<string, string>,
+  part: string,
+): string {
   return parts.get(part) ?? "";
 }
 
-const assertInteractiveTty = Effect.sync(() => process.stdin.isTTY === true && process.stdout.isTTY === true).pipe(
-  Effect.flatMap((isInteractive) => (isInteractive ? Effect.void : new NonInteractiveTerminal()))
+const assertInteractiveTty = Effect.sync(
+  () => process.stdin.isTTY === true && process.stdout.isTTY === true,
+).pipe(
+  Effect.flatMap((isInteractive) =>
+    isInteractive ? Effect.void : new NonInteractiveTerminal(),
+  ),
 );
