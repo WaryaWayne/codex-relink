@@ -12,5 +12,12 @@
     "JSX": {
       "language_servers": ["tsgo", "!vtsls", "!typescript-language-server", "..."]
     }
+  },
+  "lsp": {
+    "tsgo": {
+      "settings": {
+        "package_version": "7.0.0-dev.20260515.1"
+      }
+    }
   }
 }
