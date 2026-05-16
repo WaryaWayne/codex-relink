@@ -5,21 +5,26 @@ import { Command, Flag } from "effect/unstable/cli";
 
 import {
   findResumeCandidates,
-  formatListHeader,
+  formatCliHeader,
+  formatLatestMatchCheckpoint,
   formatListMatchCheckpoint,
-  formatListReadingLine,
   formatNoChatsFound,
+  formatReadingLine,
   getLatestResumeCandidate,
+  formatUnknownSubcommandError,
   selectResumeCandidate,
 } from "./resume.js";
 import { loadCodexData } from "./storage.js";
 
 const VERSION = "0.0.1";
+const KNOWN_SUBCOMMANDS = new Set(["latest", "list"]);
+const ACTION_FLAGS = new Set(["--help", "-h", "--version", "--completions"]);
+const FLAGS_WITH_VALUE = new Set(["--codex-home", "--log-level", "--completions"]);
 
 const currentWorkingDirectory = Effect.sync(() => process.cwd());
 
 const codexHome = Flag.string("codex-home").pipe(
-  Flag.withDescription("Codex home directory"),
+  Flag.withDescription("Codex home directory. Defaults to ~/.codex."),
   Flag.withDefault("~/.codex"),
 );
 
@@ -36,8 +41,9 @@ const latest = Command.make(
   Effect.fn("Cli.latest")(function* () {
     const options = yield* root;
     const cwd = yield* currentWorkingDirectory;
-    const data = yield* loadCodexData({ codexHome: options.codexHome });
-    const candidate = getLatestResumeCandidate(findResumeCandidates(data, cwd));
+    const candidates = yield* loadResumeCandidates(options.codexHome, cwd);
+    yield* Console.error(formatLatestMatchCheckpoint(candidates.length));
+    const candidate = getLatestResumeCandidate(candidates);
 
     if (!candidate) {
       yield* Console.log(formatNoChatsFound(cwd));
@@ -58,10 +64,7 @@ const list = Command.make(
   Effect.fn("Cli.list")(function* () {
     const options = yield* root;
     const cwd = yield* currentWorkingDirectory;
-    yield* Console.error(formatListHeader({ color: process.stderr.isTTY === true }));
-    const readingLine = formatListReadingLine(options.codexHome, cwd);
-    const data = yield* withStderrSpinner(readingLine, loadCodexData({ codexHome: options.codexHome }));
-    const candidates = findResumeCandidates(data, cwd);
+    const candidates = yield* loadResumeCandidates(options.codexHome, cwd);
     yield* Console.error(formatListMatchCheckpoint(candidates.length));
 
     if (candidates.length === 0) {
@@ -80,7 +83,19 @@ const list = Command.make(
 
 const app = root.pipe(Command.withSubcommands([latest, list]));
 
-const main = Command.run(app, { version: VERSION }).pipe(
+const runCommand = Command.run(app, { version: VERSION });
+
+const main = Effect.gen(function* () {
+  const unknownSubcommand = getUnknownSubcommand(process.argv.slice(2));
+  if (unknownSubcommand !== null) {
+    yield* Console.error(formatCliHeader({ color: process.stderr.isTTY === true }));
+    yield* Console.error(formatUnknownSubcommandError(unknownSubcommand));
+    yield* setExitCode(1);
+    return;
+  }
+
+  yield* runCommand;
+}).pipe(
   Effect.catchTag("ShowHelp", (error) =>
     error.errors.length === 0 ? Effect.void : setExitCode(1),
   ),
@@ -94,6 +109,15 @@ const main = Command.run(app, { version: VERSION }).pipe(
 );
 
 NodeRuntime.runMain(main);
+
+function loadResumeCandidates(codexHome: string, cwd: string) {
+  return Effect.gen(function* () {
+    yield* Console.error(formatCliHeader({ codexHome, color: process.stderr.isTTY === true }));
+    const readingLine = formatReadingLine(codexHome, cwd);
+    const data = yield* withStderrSpinner(readingLine, loadCodexData({ codexHome }));
+    return findResumeCandidates(data, cwd);
+  });
+}
 
 function withStderrSpinner<A, E, R>(
   message: string,
@@ -148,6 +172,37 @@ const clearStderrSpinner = Effect.sync(() => {
   }
 });
 
+function getUnknownSubcommand(args: readonly string[]): string | null {
+  for (let index = 0; index < args.length; index += 1) {
+    const arg = args[index];
+
+    if (arg === "--") {
+      return null;
+    }
+
+    if (ACTION_FLAGS.has(arg) || arg.startsWith("--completions=")) {
+      return null;
+    }
+
+    if (FLAGS_WITH_VALUE.has(arg)) {
+      index += 1;
+      continue;
+    }
+
+    if (arg.startsWith("--codex-home=") || arg.startsWith("--log-level=")) {
+      continue;
+    }
+
+    if (arg.startsWith("-")) {
+      continue;
+    }
+
+    return KNOWN_SUBCOMMANDS.has(arg) ? null : arg;
+  }
+
+  return null;
+}
+
 function setExitCode(code: number) {
   return Effect.sync(() => {
     process.exitCode = code;
@@ -155,6 +210,11 @@ function setExitCode(code: number) {
 }
 
 function formatError(error: unknown): string {
+  const message = formatErrorMessage(error);
+  return message.startsWith("Error:") ? message : `Error: ${message}`;
+}
+
+function formatErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }

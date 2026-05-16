@@ -5,13 +5,15 @@ import {
   createResumeChoices,
   createResumePromptConfig,
   findResumeCandidates,
-  formatListHeader,
+  formatCliHeader,
+  formatLatestMatchCheckpoint,
   formatListMatchCheckpoint,
-  formatListReadingLine,
   formatNoChatsFound,
+  formatReadingLine,
   formatResumeChoiceName,
   formatResumeCommand,
   formatUpdatedTime,
+  formatUnknownSubcommandError,
   getLatestResumeCandidate,
   resolveResumeTitle
 } from "./resume.js";
@@ -147,12 +149,15 @@ describe("resume helpers", () => {
     expect(formatNoChatsFound("/repo/app")).toBe("No Codex chats were found for the current directory: /repo/app");
   }));
 
-  it.effect("formats minimal list header, reading, and checkpoint messages", () => Effect.gen(function*() {
-    expect(formatListHeader()).toBe("codex-relink");
-    expect(formatListHeader({ color: true })).toContain("codex-relink");
-    expect(formatListReadingLine("~/.codex", "/repo/app")).toBe("Reading Codex chats from ~/.codex for /repo/app.");
+  it.effect("formats minimal CLI header, reading, and checkpoint messages", () => Effect.gen(function*() {
+    expect(formatCliHeader()).toBe("codex-relink\n  ~/.codex -> current directory -> codex resume");
+    expect(formatCliHeader({ codexHome: "/tmp/codex", color: true })).toContain("/tmp/codex -> current directory -> codex resume");
+    expect(formatReadingLine("~/.codex", "/repo/app")).toBe("Reading Codex chats from ~/.codex for /repo/app.");
+    expect(formatLatestMatchCheckpoint(1)).toBe("Checkpoint: found 1 matching chat. Printing latest resume command.");
+    expect(formatLatestMatchCheckpoint(0)).toBe("Checkpoint: found 0 matching chats. No resume command printed.");
     expect(formatListMatchCheckpoint(1)).toBe("Checkpoint: found 1 matching chat. Opening picker.");
     expect(formatListMatchCheckpoint(0)).toBe("Checkpoint: found 0 matching chats. No picker opened.");
+    expect(formatUnknownSubcommandError("wpw")).toContain('Error: unknown subcommand "wpw"');
   }));
 });
 

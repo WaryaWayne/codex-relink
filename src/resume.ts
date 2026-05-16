@@ -41,6 +41,7 @@ const PROMPT_ROW_PREFIX_COLUMNS = 2;
 const UPDATED_LABEL_COLUMNS = 20;
 const SHORT_ID_COLUMNS = 8;
 const ANSI_BOLD = "\x1B[1m";
+const ANSI_BLACK_BRIGHT = "\x1B[90m";
 const ANSI_CYAN_BRIGHT = "\x1B[96m";
 const ANSI_RESET = "\x1B[0m";
 
@@ -103,22 +104,39 @@ export function formatNoChatsFound(cwd: string): string {
   return `No Codex chats were found for the current directory: ${cwd}`;
 }
 
-export function formatListHeader(options: { color?: boolean } = {}): string {
+export function formatCliHeader(options: { codexHome?: string; color?: boolean } = {}): string {
+  const diagram = `${options.codexHome ?? "~/.codex"} -> current directory -> codex resume`;
   if (options.color === true) {
-    return `${ANSI_BOLD}${ANSI_CYAN_BRIGHT}codex-relink${ANSI_RESET}`;
+    return [
+      `${ANSI_BOLD}${ANSI_CYAN_BRIGHT}codex-relink${ANSI_RESET}`,
+      `  ${ANSI_BLACK_BRIGHT}${diagram}${ANSI_RESET}`
+    ].join("\n");
   }
 
-  return "codex-relink";
+  return ["codex-relink", `  ${diagram}`].join("\n");
 }
 
-export function formatListReadingLine(codexHome: string, cwd: string): string {
+export function formatReadingLine(codexHome: string, cwd: string): string {
   return `Reading Codex chats from ${codexHome} for ${cwd}.`;
+}
+
+export function formatLatestMatchCheckpoint(candidateCount: number): string {
+  const chatLabel = candidateCount === 1 ? "chat" : "chats";
+  const nextStep = candidateCount === 0 ? "No resume command printed." : "Printing latest resume command.";
+  return `Checkpoint: found ${candidateCount} matching ${chatLabel}. ${nextStep}`;
 }
 
 export function formatListMatchCheckpoint(candidateCount: number): string {
   const chatLabel = candidateCount === 1 ? "chat" : "chats";
   const nextStep = candidateCount === 0 ? "No picker opened." : "Opening picker.";
   return `Checkpoint: found ${candidateCount} matching ${chatLabel}. ${nextStep}`;
+}
+
+export function formatUnknownSubcommandError(subcommand: string): string {
+  return [
+    `Error: unknown subcommand "${subcommand}" for "codex-relink".`,
+    `Use "codex-relink --help" to see available commands: latest, list.`
+  ].join("\n");
 }
 
 export function resolveResumeTitle(thread: ThreadRow, transcript?: TranscriptMetadata | null): string {
