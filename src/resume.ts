@@ -18,11 +18,15 @@ export type ResumeCandidate = {
 export type ResumeChoice = {
   value: string;
   title: string;
-  description: string;
+  description?: string;
 };
 
 export type ResumeChoiceOptions = {
   terminalColumns?: number;
+};
+
+export type ResumeCandidateOptions = {
+  timeZone?: string;
 };
 
 export type ResumePromptConfig = {
@@ -36,6 +40,9 @@ const DEFAULT_TERMINAL_COLUMNS = 80;
 const PROMPT_ROW_PREFIX_COLUMNS = 2;
 const UPDATED_LABEL_COLUMNS = 20;
 const SHORT_ID_COLUMNS = 8;
+const ANSI_BOLD = "\x1B[1m";
+const ANSI_CYAN_BRIGHT = "\x1B[96m";
+const ANSI_RESET = "\x1B[0m";
 
 export class NonInteractiveTerminal extends Data.TaggedError("NonInteractiveTerminal")<{}> {
   override get message(): string {
@@ -43,9 +50,9 @@ export class NonInteractiveTerminal extends Data.TaggedError("NonInteractiveTerm
   }
 }
 
-export function findResumeCandidates(data: LoadedCodexData, cwd: string): ResumeCandidate[] {
+export function findResumeCandidates(data: LoadedCodexData, cwd: string, options: ResumeCandidateOptions = {}): ResumeCandidate[] {
   return filterThreadsForProject(data, cwd)
-    .map((thread) => toResumeCandidate(thread, data.transcriptsByThreadId.get(thread.id)))
+    .map((thread) => toResumeCandidate(thread, data.transcriptsByThreadId.get(thread.id), options))
     .sort(compareResumeCandidatesNewestFirst);
 }
 
@@ -61,8 +68,7 @@ export function createResumeChoices(candidates: readonly ResumeCandidate[], opti
     title: formatResumeChoiceName(candidate, index + 1, {
       numberWidth,
       terminalColumns: options.terminalColumns
-    }),
-    description: `${candidate.resumeCommand} (${candidate.id})`
+    })
   }));
 }
 
@@ -95,6 +101,24 @@ export function formatResumeCommand(threadId: string): string {
 
 export function formatNoChatsFound(cwd: string): string {
   return `No Codex chats were found for the current directory: ${cwd}`;
+}
+
+export function formatListHeader(options: { color?: boolean } = {}): string {
+  if (options.color === true) {
+    return `${ANSI_BOLD}${ANSI_CYAN_BRIGHT}codex-relink${ANSI_RESET}`;
+  }
+
+  return "codex-relink";
+}
+
+export function formatListReadingLine(codexHome: string, cwd: string): string {
+  return `Reading Codex chats from ${codexHome} for ${cwd}.`;
+}
+
+export function formatListMatchCheckpoint(candidateCount: number): string {
+  const chatLabel = candidateCount === 1 ? "chat" : "chats";
+  const nextStep = candidateCount === 0 ? "No picker opened." : "Opening picker.";
+  return `Checkpoint: found ${candidateCount} matching ${chatLabel}. ${nextStep}`;
 }
 
 export function resolveResumeTitle(thread: ThreadRow, transcript?: TranscriptMetadata | null): string {
@@ -152,23 +176,22 @@ export function getThreadResumeTime(thread: ThreadRow): number {
   return 0;
 }
 
-export function formatUpdatedTime(thread: ThreadRow): string {
+export function formatUpdatedTime(thread: ThreadRow, options: ResumeCandidateOptions = {}): string {
   const time = getThreadResumeTime(thread);
   if (time <= 0) {
     return "unknown time";
   }
 
-  const iso = DateTime.formatIso(DateTime.makeUnsafe(time));
-  return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
+  return formatLocalTimestamp(time, options);
 }
 
-function toResumeCandidate(thread: ThreadRow, transcript?: TranscriptMetadata): ResumeCandidate {
+function toResumeCandidate(thread: ThreadRow, transcript?: TranscriptMetadata, options: ResumeCandidateOptions = {}): ResumeCandidate {
   return {
     id: thread.id,
     thread,
     title: resolveResumeTitle(thread, transcript),
     shortId: shortThreadId(thread.id),
-    updatedLabel: formatUpdatedTime(thread),
+    updatedLabel: formatUpdatedTime(thread, options),
     resumeCommand: formatResumeCommand(thread.id),
     sortTime: getThreadResumeTime(thread)
   };
@@ -197,6 +220,28 @@ function truncateInline(value: string, maxLength: number): string {
   }
 
   return `${cleaned.slice(0, maxLength - 3).trimEnd()}...`;
+}
+
+function formatLocalTimestamp(epochMillis: number, options: ResumeCandidateOptions): string {
+  const date = DateTime.toDateUtc(DateTime.makeUnsafe(epochMillis));
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: options.timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZoneName: "short"
+  });
+  const parts = new Map(formatter.formatToParts(date).map((part) => [part.type, part.value]));
+  const timeZoneName = parts.get("timeZoneName");
+  const label = `${getDateTimePart(parts, "year")}-${getDateTimePart(parts, "month")}-${getDateTimePart(parts, "day")} ${getDateTimePart(parts, "hour")}:${getDateTimePart(parts, "minute")}`;
+  return timeZoneName ? `${label} ${timeZoneName}` : label;
+}
+
+function getDateTimePart(parts: ReadonlyMap<string, string>, part: string): string {
+  return parts.get(part) ?? "";
 }
 
 const assertInteractiveTty = Effect.sync(() => process.stdin.isTTY === true && process.stdout.isTTY === true).pipe(

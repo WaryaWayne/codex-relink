@@ -5,9 +5,13 @@ import {
   createResumeChoices,
   createResumePromptConfig,
   findResumeCandidates,
+  formatListHeader,
+  formatListMatchCheckpoint,
+  formatListReadingLine,
   formatNoChatsFound,
   formatResumeChoiceName,
   formatResumeCommand,
+  formatUpdatedTime,
   getLatestResumeCandidate,
   resolveResumeTitle
 } from "./resume.js";
@@ -63,21 +67,28 @@ describe("resume helpers", () => {
       })
     ]);
 
-    const candidate = findResumeCandidates(data, "/repo/app")[0];
+    const candidate = findResumeCandidates(data, "/repo/app", { timeZone: "America/Toronto" })[0];
     const choices = createResumeChoices([candidate]);
 
     expect(choices).toEqual([
       {
         value: "019abcdef1234567890",
-        title: "1.  2023-11-14 22:13 UTC  019abcde  Resume helper implementation",
-        description: "codex resume 019abcdef1234567890 (019abcdef1234567890)"
+        title: "1.  2023-11-14 17:13 EST  019abcde  Resume helper implementation"
       }
     ]);
+    expect(choices[0]).not.toHaveProperty("description");
     expect(formatResumeChoiceName(candidate)).toContain("1.");
     expect(formatResumeChoiceName(candidate)).toContain("Resume helper implementation");
-    expect(formatResumeChoiceName(candidate)).toContain("2023-11-14 22:13 UTC");
+    expect(formatResumeChoiceName(candidate)).toContain("2023-11-14 17:13 EST");
     expect(formatResumeChoiceName(candidate)).toContain("019abcde");
     expect(formatResumeChoiceName(candidate)).not.toContain("|");
+  }));
+
+  it.effect("formats updated time in the requested local timezone", () => Effect.gen(function*() {
+    const thread = makeThread({ updated_at_ms: epochMillis("2026-05-16T04:09:00.000Z") });
+
+    expect(formatUpdatedTime(thread, { timeZone: "America/Toronto" })).toBe("2026-05-16 00:09 EDT");
+    expect(formatUpdatedTime(thread, { timeZone: "UTC" })).toBe("2026-05-16 04:09 UTC");
   }));
 
   it.effect("keeps long choice titles on one terminal row", () => Effect.gen(function*() {
@@ -90,10 +101,10 @@ describe("resume helpers", () => {
       })
     ]);
 
-    const candidate = findResumeCandidates(data, "/repo/app")[0];
+    const candidate = findResumeCandidates(data, "/repo/app", { timeZone: "America/Toronto" })[0];
     const [choice] = createResumeChoices([candidate], { terminalColumns: 60 });
 
-    expect(choice.title).toBe("1.  2023-11-14 22:13 UTC  019abcde  hey reply codex-rel...");
+    expect(choice.title).toBe("1.  2023-11-14 17:13 EST  019abcde  hey reply codex-rel...");
     expect(choice.title).not.toContain("\n");
     expect(choice.title).not.toContain("|");
     expect(choice.title.length).toBeLessThanOrEqual(58);
@@ -134,6 +145,14 @@ describe("resume helpers", () => {
 
   it.effect("formats the no-match message for the current directory", () => Effect.gen(function*() {
     expect(formatNoChatsFound("/repo/app")).toBe("No Codex chats were found for the current directory: /repo/app");
+  }));
+
+  it.effect("formats minimal list header, reading, and checkpoint messages", () => Effect.gen(function*() {
+    expect(formatListHeader()).toBe("codex-relink");
+    expect(formatListHeader({ color: true })).toContain("codex-relink");
+    expect(formatListReadingLine("~/.codex", "/repo/app")).toBe("Reading Codex chats from ~/.codex for /repo/app.");
+    expect(formatListMatchCheckpoint(1)).toBe("Checkpoint: found 1 matching chat. Opening picker.");
+    expect(formatListMatchCheckpoint(0)).toBe("Checkpoint: found 0 matching chats. No picker opened.");
   }));
 });
 
