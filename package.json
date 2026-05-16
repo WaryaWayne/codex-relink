@@ -1,6 +1,6 @@
 {
   "name": "codex-relink",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Find missing Codex CLI chats for the current directory and print resume commands.",
   "type": "module",
   "repository": {
