@@ -1,6 +1,4 @@
-import path from "node:path";
-
-import { normalizeFsPath } from "./paths.js";
+import { basenameFsPath, isAbsoluteFsPath, normalizeFsPath, relativeFsPath } from "./paths.js";
 import type { LoadedCodexData, ProjectMatch, ThreadRow, TranscriptMetadata } from "./types.js";
 
 export function isSameOrDescendantPath(candidateInput: string, rootInput: string): "exact" | "descendant" | null {
@@ -11,8 +9,8 @@ export function isSameOrDescendantPath(candidateInput: string, rootInput: string
     return "exact";
   }
 
-  const relative = path.relative(root, candidate);
-  if (relative && !relative.startsWith("..") && !path.isAbsolute(relative)) {
+  const relative = relativeFsPath(root, candidate);
+  if (relative && !relative.startsWith("..") && !isAbsoluteFsPath(relative)) {
     return "descendant";
   }
 
@@ -40,7 +38,7 @@ export function matchThreadToProject(
     reasons.push("transcript-cwd");
   }
 
-  const projectBase = path.basename(projectRoot).toLowerCase();
+  const projectBase = basenameFsPath(projectRoot).toLowerCase();
   if (thread.git_origin_url?.toLowerCase().includes(projectBase)) {
     reasons.push("git-origin");
   }

@@ -1,20 +1,13 @@
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
-
-import { NodeFileSystem } from "@effect/platform-node";
-import { Effect } from "effect";
-import { describe, expect, it } from "vitest";
+import { NodeServices } from "@effect/platform-node";
+import { expect, layer } from "@effect/vitest";
+import { Effect, FileSystem, Path } from "effect";
 
 import { parseJsonlTranscript } from "./jsonl.js";
 
-describe("jsonl transcript parsing", () => {
-  it("extracts id, cwd, user messages, event messages, and tool workdir values", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-relink-jsonl-"));
-    const filePath = path.join(dir, "session.jsonl");
-    fs.writeFileSync(
-      filePath,
-      [
+layer(NodeServices.layer)("jsonl transcript parsing", (it) => {
+  it.effect("extracts id, cwd, user messages, event messages, and tool workdir values", () =>
+    Effect.gen(function*() {
+      const filePath = yield* writeTranscript([
         JSON.stringify({ type: "session_meta", payload: { id: "thread-1", cwd: "/repo/app" } }),
         JSON.stringify({
           type: "response_item",
@@ -22,26 +15,22 @@ describe("jsonl transcript parsing", () => {
         }),
         JSON.stringify({ type: "event_msg", payload: { message: "event fallback" } }),
         JSON.stringify({ type: "tool_call", payload: { workdir: "/repo/app/packages/web" } })
-      ].join("\n")
-    );
+      ]);
 
-    const transcript = await runJsonlParser(filePath);
+      const transcript = yield* parseJsonlTranscript(filePath);
 
-    expect(transcript).toMatchObject({
-      filePath,
-      threadId: "thread-1",
-      cwdMentions: ["/repo/app", "/repo/app/packages/web"],
-      userMessages: ["please recover this chat"],
-      eventMessages: ["event fallback"]
-    });
-  });
+      expect(transcript).toMatchObject({
+        filePath,
+        threadId: "thread-1",
+        cwdMentions: ["/repo/app", "/repo/app/packages/web"],
+        userMessages: ["please recover this chat"],
+        eventMessages: ["event fallback"]
+      });
+    }));
 
-  it("skips synthetic environment context user messages", async () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "codex-relink-jsonl-"));
-    const filePath = path.join(dir, "session.jsonl");
-    fs.writeFileSync(
-      filePath,
-      [
+  it.effect("skips synthetic environment context user messages", () =>
+    Effect.gen(function*() {
+      const filePath = yield* writeTranscript([
         JSON.stringify({
           type: "response_item",
           payload: {
@@ -54,15 +43,21 @@ describe("jsonl transcript parsing", () => {
           type: "response_item",
           payload: { type: "message", role: "user", content: [{ type: "input_text", text: "real request" }] }
         })
-      ].join("\n")
-    );
+      ]);
 
-    const transcript = await runJsonlParser(filePath);
+      const transcript = yield* parseJsonlTranscript(filePath);
 
-    expect(transcript.userMessages).toEqual(["real request"]);
-  });
+      expect(transcript.userMessages).toEqual(["real request"]);
+    }));
 });
 
-function runJsonlParser(filePath: string) {
-  return Effect.runPromise(parseJsonlTranscript(filePath).pipe(Effect.provide(NodeFileSystem.layer)));
+function writeTranscript(lines: string[]) {
+  return Effect.gen(function*() {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const dir = yield* fs.makeTempDirectoryScoped({ prefix: "codex-relink-jsonl-" });
+    const filePath = path.join(dir, "session.jsonl");
+    yield* fs.writeFileString(filePath, lines.join("\n"));
+    return filePath;
+  });
 }

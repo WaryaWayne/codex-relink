@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect } from "effect";
 
 import { isSameOrDescendantPath, matchThreadToProject } from "./project.js";
 import type { ThreadRow } from "./types.js";
@@ -24,29 +25,29 @@ const baseThread: ThreadRow = {
 };
 
 describe("project matching", () => {
-  it("matches exact paths", () => {
+  it.effect("matches exact paths", () => Effect.gen(function*() {
     expect(isSameOrDescendantPath("/repo/app", "/repo/app")).toBe("exact");
-  });
+  }));
 
-  it("matches descendant paths", () => {
+  it.effect("matches descendant paths", () => Effect.gen(function*() {
     expect(isSameOrDescendantPath("/repo/app/packages/web", "/repo/app")).toBe("descendant");
-  });
+  }));
 
-  it("rejects sibling paths", () => {
+  it.effect("rejects sibling paths", () => Effect.gen(function*() {
     expect(isSameOrDescendantPath("/repo/application", "/repo/app")).toBeNull();
-  });
+  }));
 
-  it("matches threads by exact cwd", () => {
+  it.effect("matches threads by exact cwd", () => Effect.gen(function*() {
     const match = matchThreadToProject({ ...baseThread, cwd: "/repo/app" }, "/repo/app");
     expect(match).toEqual({ matches: true, reasons: ["exact-cwd"] });
-  });
+  }));
 
-  it("matches threads by descendant cwd", () => {
+  it.effect("matches threads by descendant cwd", () => Effect.gen(function*() {
     const match = matchThreadToProject({ ...baseThread, cwd: "/repo/app/subdir" }, "/repo/app");
     expect(match).toEqual({ matches: true, reasons: ["descendant-cwd"] });
-  });
+  }));
 
-  it("matches threads by transcript cwd mentions", () => {
+  it.effect("matches threads by transcript cwd mentions", () => Effect.gen(function*() {
     const match = matchThreadToProject({ ...baseThread, cwd: null }, "/repo/app", {
       filePath: "/tmp/session.jsonl",
       threadId: "thread-1",
@@ -56,5 +57,5 @@ describe("project matching", () => {
     });
 
     expect(match).toEqual({ matches: true, reasons: ["transcript-cwd"] });
-  });
+  }));
 });

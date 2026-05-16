@@ -1,4 +1,4 @@
-import { Data, Effect, Terminal } from "effect";
+import { Data, DateTime, Effect, Terminal } from "effect";
 import { Prompt } from "effect/unstable/cli";
 
 import { hasUsableDisplayPreview, hasUsableDisplayTitle, normalizeTitle } from "./preview.js";
@@ -158,7 +158,7 @@ export function formatUpdatedTime(thread: ThreadRow): string {
     return "unknown time";
   }
 
-  const iso = new Date(time).toISOString();
+  const iso = DateTime.formatIso(DateTime.makeUnsafe(time));
   return `${iso.slice(0, 10)} ${iso.slice(11, 16)} UTC`;
 }
 

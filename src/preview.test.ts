@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect } from "effect";
 
 import { hasUsableDisplayPreview, hasUsableDisplayTitle, isBlank, isSyntheticContextText, recoverPreview } from "./preview.js";
 import type { TranscriptMetadata } from "./types.js";
@@ -12,21 +13,21 @@ const emptyTranscript: TranscriptMetadata = {
 };
 
 describe("preview recovery", () => {
-  it("detects blank values", () => {
+  it.effect("detects blank values", () => Effect.gen(function*() {
     expect(isBlank("")).toBe(true);
     expect(isBlank("   ")).toBe(true);
     expect(isBlank(null)).toBe(true);
     expect(isBlank("hello")).toBe(false);
-  });
+  }));
 
-  it("recovers preview from first_user_message first", () => {
+  it.effect("recovers preview from first_user_message first", () => Effect.gen(function*() {
     expect(recoverPreview("  please fix this  ", emptyTranscript)).toEqual({
       value: "please fix this",
       source: "first_user_message"
     });
-  });
+  }));
 
-  it("recovers preview from transcript user messages", () => {
+  it.effect("recovers preview from transcript user messages", () => Effect.gen(function*() {
     expect(
       recoverPreview("", {
         ...emptyTranscript,
@@ -36,9 +37,9 @@ describe("preview recovery", () => {
       value: "build the CLI",
       source: "transcript_user_message"
     });
-  });
+  }));
 
-  it("recovers preview from transcript event messages when user messages are unavailable", () => {
+  it.effect("recovers preview from transcript event messages when user messages are unavailable", () => Effect.gen(function*() {
     expect(
       recoverPreview("", {
         ...emptyTranscript,
@@ -48,9 +49,9 @@ describe("preview recovery", () => {
       value: "User asked for scan output",
       source: "transcript_event_message"
     });
-  });
+  }));
 
-  it("skips synthetic environment context when recovering previews", () => {
+  it.effect("skips synthetic environment context when recovering previews", () => Effect.gen(function*() {
     const environmentContext =
       "<environment_context>\n  <cwd>/Users/bdmwarya/Desktop/projects/creaClient</cwd>\n  <shell>zsh</shell>\n</environment_context>";
 
@@ -64,11 +65,11 @@ describe("preview recovery", () => {
       value: "actual user request",
       source: "transcript_user_message"
     });
-  });
+  }));
 
-  it("treats synthetic display metadata as unusable", () => {
+  it.effect("treats synthetic display metadata as unusable", () => Effect.gen(function*() {
     expect(hasUsableDisplayTitle("A real title")).toBe(true);
     expect(hasUsableDisplayTitle("<permissions instructions>tool limits</permissions instructions>")).toBe(false);
     expect(hasUsableDisplayPreview("&lt;environment_context&gt;cwd&lt;/environment_context&gt;")).toBe(false);
-  });
+  }));
 });
