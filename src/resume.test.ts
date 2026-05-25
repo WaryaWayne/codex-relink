@@ -38,6 +38,7 @@ describe("resume helpers", () => {
     "",
     "  codex-relink",
     "  Find Codex chats for this project.",
+    "  by @waryawayne",
   ].join("\n");
 
   it.effect("finds matching chats and returns newest first", () =>
@@ -329,6 +330,7 @@ describe("resume helpers", () => {
         });
         expect(coloredHeader).toContain("\x1B[");
         expect(coloredHeader).toContain("codex-relink");
+        expect(coloredHeader).toContain("by @waryawayne");
         expect(coloredHeader).not.toContain("/tmp/codex -> current directory -> codex resume");
         expect(formatReadingLine("~/.codex", "/repo/app")).toBe(
           "Reading Codex chats from ~/.codex for /repo/app.",

@@ -115,3 +115,10 @@ codex-relink --codex-home /tmp/codex-home latest
 ```
 
 Normal use does not require `--project`; the current working directory is used automatically.
+
+## Author
+
+Built by Warya Wayne, `@waryawayne`.
+
+- GitHub: [@WaryaWayne](https://github.com/WaryaWayne)
+- X: [@waryawayne](https://x.com/waryawayne)

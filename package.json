@@ -1,6 +1,6 @@
 {
   "name": "codex-relink",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Find missing Codex CLI chats for the current directory and print resume commands.",
   "type": "module",
   "repository": {
@@ -42,7 +42,7 @@
     "session-recovery",
     "sqlite"
   ],
-  "author": "",
+  "author": "Warya Wayne",
   "license": "MIT",
   "engines": {
     "node": ">=20"
