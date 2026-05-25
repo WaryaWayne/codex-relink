@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { Console, Effect, Fiber } from "effect";
+import { Console, Effect, Fiber, FileSystem, Path, Schema } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 
 import {
@@ -15,11 +15,11 @@ import {
 } from "./resume.js";
 import { loadCodexData } from "./storage.js";
 
-const VERSION = "0.0.1";
 const KNOWN_SUBCOMMANDS = new Set(["latest", "list"]);
 const ACTION_FLAGS = new Set(["--help", "-h", "--version", "--completions"]);
 const FLAGS_WITH_VALUE = new Set(["--codex-home", "--log-level", "--completions"]);
 const STATUS_LINE_INDENT = "  ";
+const PackageJsonVersion = Schema.Struct({ version: Schema.String });
 
 const currentWorkingDirectory = Effect.sync(() => process.cwd());
 
@@ -81,7 +81,19 @@ const list = Command.make(
 
 const app = root.pipe(Command.withSubcommands([latest, list]));
 
-const runCommand = Command.run(app, { version: VERSION });
+const readPackageVersion = Effect.fn("Cli.readPackageVersion")(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const packageJsonPath = yield* path.fromFileUrl(
+    new URL("../package.json", import.meta.url),
+  );
+  const packageJson = yield* fs.readFileString(packageJsonPath);
+  const decoded = yield* Schema.decodeUnknownEffect(
+    Schema.fromJsonString(PackageJsonVersion),
+  )(packageJson);
+
+  return decoded.version;
+});
 
 const main = Effect.gen(function* () {
   const unknownSubcommand = getUnknownSubcommand(process.argv.slice(2));
@@ -92,7 +104,8 @@ const main = Effect.gen(function* () {
     return;
   }
 
-  yield* runCommand;
+  const version = yield* readPackageVersion();
+  yield* Command.run(app, { version });
 }).pipe(
   Effect.catchTag("ShowHelp", (error) =>
     error.errors.length === 0 ? Effect.void : setExitCode(1),
