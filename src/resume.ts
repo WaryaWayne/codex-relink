@@ -58,6 +58,7 @@ const ANSI_GREEN_BRIGHT = "\x1B[92m";
 const ANSI_RESET = "\x1B[0m";
 const CLI_HEADER_INDENT = "  ";
 const CLI_BLOCK_INDENT = "  ";
+const SOCIAL_HANDLE = "@waryawayne";
 const CLI_BOTTOM_PADDING = [""];
 const PROMPT_LEADING_SYMBOL = "?";
 const PROMPT_SUBMITTED_SYMBOL = "✔";
@@ -178,6 +179,7 @@ export function formatCliHeader(
       "",
       `${CLI_HEADER_INDENT}${ANSI_BOLD}${ANSI_GREEN_BRIGHT}${name}${ANSI_RESET}`,
       `${CLI_HEADER_INDENT}${ANSI_CYAN_BRIGHT}Find${ANSI_RESET} Codex chats for this project.`,
+      `${CLI_HEADER_INDENT}by ${SOCIAL_HANDLE}`,
     ].join("\n");
   }
 
@@ -187,6 +189,7 @@ export function formatCliHeader(
     "",
     `${CLI_HEADER_INDENT}${name}`,
     `${CLI_HEADER_INDENT}${findLine}`,
+    `${CLI_HEADER_INDENT}by ${SOCIAL_HANDLE}`,
   ].join("\n");
 }
 
