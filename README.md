@@ -15,6 +15,30 @@ It reads local Codex storage:
 
 It does not edit Codex SQLite, global state, `session_index.jsonl`, titles, previews, cwd values, or user data.
 
+## Using Claude Code?
+
+If you use Claude Code instead of the Codex CLI, there is a companion tool, [`claude-relink`](https://github.com/WaryaWayne/claude-relink), that solves this same problem for Claude Code chats — finding missing or hard-to-locate sessions that match the current working directory and printing the command needed to resume them.
+
+It uses the same commands and usage as `codex-relink`. Install it globally:
+
+```bash
+npm install --global claude-relink
+```
+
+Then run it from the project directory whose Claude Code chats you want to find:
+
+```bash
+claude-relink latest
+claude-relink list
+```
+
+Or run it without installing anything globally:
+
+```bash
+npx claude-relink latest
+bunx claude-relink latest
+```
+
 ## Install
 
 Install it globally from npm if you want the `codex-relink` command available everywhere:
